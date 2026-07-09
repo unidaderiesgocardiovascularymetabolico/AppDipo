@@ -290,6 +290,24 @@
   .dash-chip.cumplido{background:#E4F5F0; color:#1F9D6D;}
   .dash-chip.no-cumplido{background:#FCEBEA; color:var(--coral);}
 
+  /* ---------- OBJETIVOS DE ACTIVIDAD (semanales) ---------- */
+  .chips-fila{display:flex; flex-wrap:wrap; gap:8px; margin-top:4px;}
+  .chip-toggle{
+    font-size:0.8rem; font-weight:600; padding:7px 14px; border-radius:20px;
+    background:#F0F0F0; color:var(--texto-suave); cursor:pointer; border:1.5px solid transparent; user-select:none;
+  }
+  .chip-toggle.sel{background:#E4F5F0; color:#1F9D6D; border-color:#1F9D6D;}
+  .agregar-personalizada{display:flex; gap:8px; margin-top:10px;}
+  .agregar-personalizada input{flex:1; padding:8px 10px; border:1.5px solid var(--gris); border-radius:8px; font-family:inherit; font-size:0.85rem;}
+  .agregar-personalizada button{padding:8px 14px; border:none; border-radius:8px; background:var(--azul); color:#fff; font-weight:600; font-size:0.8rem; cursor:pointer;}
+  .btn-agregar-objetivo{background:none; border:1.5px dashed var(--azul); color:var(--azul); padding:10px 16px; border-radius:9px; font-weight:600; font-size:0.85rem; cursor:pointer; width:100%; margin-top:10px;}
+  .obj-act-form{background:var(--fondo); border-radius:10px; padding:16px; margin-top:14px;}
+  .obj-act-card{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:12px 4px; border-bottom:1px solid #F0F0F0; font-size:0.88rem;}
+  .obj-act-card:last-child{border-bottom:none;}
+  .obj-act-lista-txt{font-size:0.78rem; color:var(--texto-suave); margin-top:4px;}
+  .btn-quitar-obj{background:none; border:1px solid var(--coral); color:var(--coral); padding:5px 10px; border-radius:7px; font-size:0.75rem; font-weight:600; cursor:pointer; flex-shrink:0;}
+  .btn-cancelar-obj{background:none; border:none; color:var(--texto-suave); font-size:0.82rem; cursor:pointer; margin-left:12px;}
+
   /* ---------- RESUMEN PARA HISTORIA CLÍNICA ---------- */
   .hc-fechas{display:flex; gap:12px; margin-bottom:2px;}
   .hc-fechas .campo{flex:1;}
@@ -432,6 +450,45 @@
 
       <button class="btn btn-primary" id="btnGuardarObjetivos" style="margin-top:16px;width:auto;padding:10px 22px;">💾 Guardar objetivos</button>
       <div class="obj-ali-guardado" id="objAliGuardadoMsg">✓ Objetivos guardados.</div>
+    </div>
+
+    <div class="card">
+      <h3>🏃 Objetivos de actividad física</h3>
+      <p style="font-size:0.82rem;color:var(--texto-suave);margin:0 0 14px;">Son objetivos semanales — la semana arranca el lunes. El paciente va sumando minutos día a día hasta completar la meta. Podés cargarle varios objetivos a la vez.</p>
+
+      <div id="objActividadLista"></div>
+
+      <button class="btn-agregar-objetivo" id="btnMostrarFormObjetivoAct" type="button">+ Agregar objetivo de actividad</button>
+
+      <div class="obj-act-form" id="formNuevoObjetivoAct" style="display:none;">
+        <div class="obj-selector-fila">
+          <label>Intensidad</label>
+          <div class="chips-fila" id="chipsIntensidadAct">
+            <span class="chip-toggle" data-intensidad="moderada">Moderada</span>
+            <span class="chip-toggle" data-intensidad="vigorosa">Vigorosa</span>
+          </div>
+        </div>
+        <div class="obj-selector-fila">
+          <label for="inMetaMinutosAct">Meta semanal</label>
+          <div class="obj-ali-input-wrap">
+            <input type="number" min="1" step="5" id="inMetaMinutosAct" value="300">
+            <span>min/semana</span>
+          </div>
+        </div>
+        <div class="obj-selector-fila">
+          <label>Actividades habilitadas para este objetivo</label>
+          <div class="chips-fila" id="chipsActividadesAct"></div>
+          <div class="agregar-personalizada">
+            <input type="text" id="inActividadNuevaAct" placeholder="Agregar otra actividad...">
+            <button type="button" id="btnAgregarActividadNuevaAct">Agregar</button>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="btnConfirmarObjetivoAct" type="button" style="width:auto;padding:10px 20px;">Agregar objetivo</button>
+        <button class="btn-cancelar-obj" id="btnCancelarObjetivoAct" type="button">Cancelar</button>
+      </div>
+
+      <button class="btn btn-primary" id="btnGuardarObjetivosAct" style="margin-top:18px;width:auto;padding:10px 22px;">💾 Guardar objetivos de actividad</button>
+      <div class="obj-ali-guardado" id="objActGuardadoMsg">✓ Objetivos guardados.</div>
     </div>
 
     <div class="card">
@@ -720,6 +777,7 @@ async function abrirFicha(dni){
   renderizarTabla(registros || []);
   pesoActualPaciente = obtenerUltimoPeso(registros || []);
   renderObjetivosAlimentacion(pacienteSeleccionado);
+  renderObjetivosActividad(pacienteSeleccionado);
   cargarHabitosRecientes(dni);
 }
 
@@ -797,6 +855,146 @@ async function guardarObjetivosAlimentacion(){
   if(enCache) Object.assign(enCache, payload);
 
   const msg = document.getElementById('objAliGuardadoMsg');
+  msg.style.display = 'block';
+  setTimeout(()=>{ msg.style.display = 'none'; }, 4000);
+}
+
+// ═══ OBJETIVOS DE ACTIVIDAD FÍSICA (semanales) ═══
+const CATALOGO_ACTIVIDAD_MODERADA = ['Caminata rápida','Bicicleta','Natación suave','Baile','Yoga / Pilates','Jardinería','Tareas domésticas intensas'];
+const CATALOGO_ACTIVIDAD_VIGOROSA = ['Running / trote','Fútbol','Tenis','HIIT','Ciclismo intenso','Natación intensa','Aeróbica / step'];
+
+let objetivosActividadActuales = [];
+let intensidadSelAct = null;
+let actividadesSelAct = new Set();
+
+function renderObjetivosActividad(paciente){
+  document.getElementById('objActGuardadoMsg').style.display = 'none';
+  document.getElementById('formNuevoObjetivoAct').style.display = 'none';
+  const objetivos = paciente && Array.isArray(paciente.objetivos_actividad) ? paciente.objetivos_actividad : [];
+  // El formato viejo (sin "id") no es compatible con los objetivos semanales nuevos; se descarta.
+  objetivosActividadActuales = objetivos.filter(o => o && o.id).map(o => ({ ...o, actividades: [...o.actividades] }));
+  renderizarListaObjetivosActividadProf();
+}
+
+function renderizarListaObjetivosActividadProf(){
+  const cont = document.getElementById('objActividadLista');
+  if(!objetivosActividadActuales.length){
+    cont.innerHTML = '<div class="vacio" style="padding:16px 0;">Todavía no hay objetivos de actividad para este paciente.</div>';
+    return;
+  }
+  cont.innerHTML = objetivosActividadActuales.map(obj=>{
+    const etiqueta = obj.intensidad === 'vigorosa' ? 'Vigorosa' : 'Moderada';
+    return `<div class="obj-act-card">
+      <div>
+        <b>${etiqueta}</b> — ${obj.meta_minutos} min/semana
+        <div class="obj-act-lista-txt">${obj.actividades.join(' · ')}</div>
+      </div>
+      <button type="button" class="btn-quitar-obj" data-id="${obj.id}">Quitar</button>
+    </div>`;
+  }).join('');
+
+  cont.querySelectorAll('.btn-quitar-obj').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      objetivosActividadActuales = objetivosActividadActuales.filter(o => o.id !== btn.dataset.id);
+      renderizarListaObjetivosActividadProf();
+    });
+  });
+}
+
+document.getElementById('btnMostrarFormObjetivoAct').addEventListener('click', ()=>{
+  intensidadSelAct = null;
+  actividadesSelAct = new Set();
+  document.getElementById('inMetaMinutosAct').value = 300;
+  document.querySelectorAll('#chipsIntensidadAct .chip-toggle').forEach(c=>c.classList.remove('sel'));
+  document.getElementById('chipsActividadesAct').innerHTML = '';
+  document.getElementById('formNuevoObjetivoAct').style.display = 'block';
+});
+
+document.getElementById('btnCancelarObjetivoAct').addEventListener('click', ()=>{
+  document.getElementById('formNuevoObjetivoAct').style.display = 'none';
+});
+
+document.querySelectorAll('#chipsIntensidadAct .chip-toggle').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    document.querySelectorAll('#chipsIntensidadAct .chip-toggle').forEach(c=>c.classList.remove('sel'));
+    chip.classList.add('sel');
+    intensidadSelAct = chip.dataset.intensidad;
+    document.getElementById('inMetaMinutosAct').value = intensidadSelAct === 'vigorosa' ? 75 : 300;
+    actividadesSelAct = new Set();
+    renderizarChipsActividadesAct();
+  });
+});
+
+function renderizarChipsActividadesAct(){
+  const catalogo = intensidadSelAct === 'vigorosa' ? CATALOGO_ACTIVIDAD_VIGOROSA : CATALOGO_ACTIVIDAD_MODERADA;
+  const cont = document.getElementById('chipsActividadesAct');
+  cont.innerHTML = catalogo.map(a=>`<span class="chip-toggle" data-actividad="${a}">${a}</span>`).join('');
+  cont.querySelectorAll('.chip-toggle').forEach(chip=> chip.addEventListener('click', ()=> toggleActividadChipAct(chip)));
+}
+
+function toggleActividadChipAct(chip){
+  const a = chip.dataset.actividad;
+  if(actividadesSelAct.has(a)){ actividadesSelAct.delete(a); chip.classList.remove('sel'); }
+  else { actividadesSelAct.add(a); chip.classList.add('sel'); }
+}
+
+document.getElementById('btnAgregarActividadNuevaAct').addEventListener('click', ()=>{
+  const input = document.getElementById('inActividadNuevaAct');
+  const nombre = input.value.trim();
+  if(!nombre) return;
+  input.value = '';
+  actividadesSelAct.add(nombre);
+  const cont = document.getElementById('chipsActividadesAct');
+  const chip = document.createElement('span');
+  chip.className = 'chip-toggle sel';
+  chip.dataset.actividad = nombre;
+  chip.textContent = nombre;
+  chip.addEventListener('click', ()=> toggleActividadChipAct(chip));
+  cont.appendChild(chip);
+});
+
+document.getElementById('btnConfirmarObjetivoAct').addEventListener('click', ()=>{
+  if(!intensidadSelAct){ alert('Elegí la intensidad del objetivo.'); return; }
+  if(!actividadesSelAct.size){ alert('Elegí al menos una actividad.'); return; }
+  const meta = parseInt(document.getElementById('inMetaMinutosAct').value, 10) || (intensidadSelAct === 'vigorosa' ? 75 : 300);
+
+  objetivosActividadActuales.push({
+    id: 'obj_' + Date.now(),
+    intensidad: intensidadSelAct,
+    meta_minutos: meta,
+    actividades: Array.from(actividadesSelAct)
+  });
+
+  document.getElementById('formNuevoObjetivoAct').style.display = 'none';
+  renderizarListaObjetivosActividadProf();
+});
+
+document.getElementById('btnGuardarObjetivosAct').addEventListener('click', guardarObjetivosActividad);
+
+async function guardarObjetivosActividad(){
+  if(!pacienteSeleccionado) return;
+  const btn = document.getElementById('btnGuardarObjetivosAct');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  const { error } = await sb.from('appdipo_pacientes')
+    .update({ objetivos_actividad: objetivosActividadActuales })
+    .eq('dni', pacienteSeleccionado.dni);
+
+  btn.disabled = false;
+  btn.textContent = '💾 Guardar objetivos de actividad';
+
+  if(error){
+    console.error(error);
+    alert('No se pudieron guardar los objetivos: ' + error.message);
+    return;
+  }
+
+  pacienteSeleccionado.objetivos_actividad = objetivosActividadActuales;
+  const enCache = pacientesCache.find(p=>p.dni === pacienteSeleccionado.dni);
+  if(enCache) enCache.objetivos_actividad = objetivosActividadActuales;
+
+  const msg = document.getElementById('objActGuardadoMsg');
   msg.style.display = 'block';
   setTimeout(()=>{ msg.style.display = 'none'; }, 4000);
 }
@@ -966,6 +1164,7 @@ async function cargarHabitosRecientes(dni){
   }
 
   const categoriasConObjetivo = CATALOGO_DASH_OBJ;
+  const objetivosAct = (pacienteSeleccionado && pacienteSeleccionado.objetivos_actividad || []).filter(o => o && o.id);
 
   cont.innerHTML = data.map(h=>{
     const fecha = new Date(h.fecha).toLocaleDateString('es-AR', { weekday:'short', day:'2-digit', month:'short' });
@@ -979,9 +1178,17 @@ async function cargarHabitosRecientes(dni){
       return `<span class="dash-chip ${cumplido ? 'cumplido' : 'no-cumplido'}">${cat.icono} ${consumido}/${objetivo}</span>`;
     }).join('') + (huevo ? `<span class="dash-chip">🥚 ${huevo}</span>` : '');
 
+    const actividad_json = h.actividad_json || {};
+    const chipsActividad = objetivosAct.map(obj=>{
+      const entradas = actividad_json[obj.id] || [];
+      if(!entradas.length) return '';
+      const min = entradas.reduce((a,e)=> a + (e.minutos||0), 0);
+      return `<span class="dash-chip cumplido">🏃 ${min} min (${obj.intensidad === 'vigorosa' ? 'vigorosa' : 'moderada'})</span>`;
+    }).join('');
+
     return `<div class="habito-dia-dash">
       <div class="fecha">${fecha}</div>
-      <div class="chips">${chips || '<span class="dash-chip">Sin datos de alimentación este día</span>'}</div>
+      <div class="chips">${chips || '<span class="dash-chip">Sin datos de alimentación este día</span>'}${chipsActividad}</div>
     </div>`;
   }).join('');
 }
@@ -1133,23 +1340,28 @@ function construirTextoResumenHC(paciente, desde, hasta, registros, habitos){
   }
 
   // ── Actividad física ──
+  const objetivosActividad = (paciente.objetivos_actividad || []).filter(o => o && o.id);
   const habitosConActividad = habitos.filter(h => h.actividad_json && Object.keys(h.actividad_json).length);
-  if(habitosConActividad.length){
-    let totalItems = 0, totalCumplidos = 0;
-    habitosConActividad.forEach(h=>{
-      Object.values(h.actividad_json).forEach(v=>{
-        totalItems++;
-        if(v) totalCumplidos++;
-      });
-    });
-    const pctActividad = totalItems ? Math.round((totalCumplidos / totalItems) * 100) : null;
-    const promPasos = promedio(habitos.map(h => h.pasos));
+  const promPasos = promedio(habitos.map(h => h.pasos));
 
-    let textoActividad = pctActividad != null
-      ? `Actividad física: cumplimiento del ${pctActividad}% de los objetivos marcados en los ${habitosConActividad.length} días registrados.`
-      : 'Actividad física: sin objetivos de actividad marcados en el período.';
+  if(objetivosActividad.length && habitosConActividad.length){
+    const detalle = objetivosActividad.map(obj=>{
+      let total = 0;
+      habitos.forEach(h=>{
+        const entradas = (h.actividad_json && h.actividad_json[obj.id]) || [];
+        entradas.forEach(e=> total += (e.minutos || 0));
+      });
+      const semanas = Math.max(1, diasTotales / 7);
+      const metaPeriodo = Math.round(obj.meta_minutos * semanas);
+      const etiqueta = obj.intensidad === 'vigorosa' ? 'vigorosa' : 'moderada';
+      return `actividad ${etiqueta} ${total}/${metaPeriodo} min`;
+    }).join(', ');
+
+    let textoActividad = `Actividad física: ${detalle} (objetivo semanal proyectado al período).`;
     if(promPasos != null) textoActividad += ` Promedio de ${Math.round(promPasos)} pasos diarios.`;
     parrafos.push(textoActividad);
+  } else if(promPasos != null){
+    parrafos.push(`Actividad física: sin objetivos de actividad cargados en el período. Promedio de ${Math.round(promPasos)} pasos diarios.`);
   } else {
     parrafos.push('Actividad física: sin registros cargados en el período.');
   }
