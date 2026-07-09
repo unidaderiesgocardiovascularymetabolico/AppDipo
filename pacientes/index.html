@@ -273,6 +273,35 @@
     font-size:0.9rem;
   }
 
+  /* ---------- RESUMEN DE HOY ---------- */
+  .resumen-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 0;
+    font-size:0.95rem;
+    font-weight:600;
+  }
+  .resumen-icono{font-size:1.2rem; line-height:1;}
+  .resumen-alimentos{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:8px;
+  }
+  .resumen-chip{
+    font-size:0.78rem;
+    font-weight:600;
+    padding:6px 12px;
+    border-radius:20px;
+    background:#F0F0F0;
+    color:var(--texto-suave);
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+  }
+  .resumen-chip.on{background:#E4F5F0; color:#1F9D6D;}
+
   .toast{
     position:fixed;
     bottom:24px;
@@ -474,6 +503,15 @@
 
       <!-- ---- HABITOS ---- -->
       <div class="panel" id="panel-habitos">
+        <div class="card">
+          <h3>Resumen de hoy</h3>
+          <div class="resumen-item" id="resumenActividad">
+            <span class="resumen-icono">⏳</span>
+            <span>Cargando...</span>
+          </div>
+          <div class="resumen-alimentos" id="resumenAlimentos"></div>
+        </div>
+
         <div class="card">
           <h3>Actividad física</h3>
           <div id="listaObjetivosActividad">
@@ -764,6 +802,42 @@ async function guardarRegistro(){
 }
 
 // ═══ HABITOS DINÁMICOS (objetivos cargados por el profesional) ═══
+const ETIQUETAS_ALIMENTACION = {
+  frutas: 'Frutas',
+  verduras: 'Verduras',
+  calcio: 'Calcio',
+  proteinas: 'Proteínas',
+  frutos_secos: 'Frutos secos',
+  agua: 'Agua',
+  legumbres: 'Legumbres'
+};
+
+function actualizarResumenHabitos(){
+  const chksActividad = document.querySelectorAll('.chk-objetivo[data-tipo="actividad"]');
+  const elAct = document.getElementById('resumenActividad');
+  if(!chksActividad.length){
+    elAct.innerHTML = `<span class="resumen-icono">—</span><span>Todavía no tenés objetivos de actividad cargados.</span>`;
+  } else {
+    const cumplidos = Array.from(chksActividad).filter(c => c.checked).length;
+    if(cumplidos === chksActividad.length){
+      elAct.innerHTML = `<span class="resumen-icono">✅</span><span>¡Cumpliste tu objetivo de actividad de hoy!</span>`;
+    } else {
+      elAct.innerHTML = `<span class="resumen-icono">⏳</span><span>Actividad: ${cumplidos}/${chksActividad.length} objetivos cumplidos hoy</span>`;
+    }
+  }
+
+  const chksAlim = document.querySelectorAll('.chk-objetivo[data-tipo="alimentacion"]');
+  const contAlim = document.getElementById('resumenAlimentos');
+  contAlim.innerHTML = Array.from(chksAlim).map(c=>{
+    const label = ETIQUETAS_ALIMENTACION[c.dataset.key] || c.dataset.key;
+    return `<span class="resumen-chip ${c.checked ? 'on' : ''}">${c.checked ? '✓' : '○'} ${label}</span>`;
+  }).join('');
+}
+
+document.addEventListener('change', e=>{
+  if(e.target.classList.contains('chk-objetivo')) actualizarResumenHabitos();
+});
+
 function renderizarListaObjetivos(contenedorId, objetivos){
   const cont = document.getElementById(contenedorId);
   if(!objetivos || objetivos.length === 0){
@@ -815,6 +889,8 @@ async function cargarPanelHabitos(){
       if(fuente && fuente[chk.dataset.key]) chk.checked = true;
     });
   }
+
+  actualizarResumenHabitos();
 }
 
 // ═══ GUARDAR HABITOS ═══
