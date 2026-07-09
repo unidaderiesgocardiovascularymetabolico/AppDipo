@@ -278,6 +278,16 @@
     font-size:0.9rem;
   }
 
+  /* ---------- ANTROPOMETRÍA CLÍNICA (solo lectura) ---------- */
+  .ant-tabla-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  .ant-tabla{border-collapse:collapse; font-size:0.82rem; white-space:nowrap; width:100%;}
+  .ant-tabla th, .ant-tabla td{padding:8px 12px; border:1px solid var(--gris); text-align:center;}
+  .ant-tabla thead th{background:var(--azul); color:var(--blanco); font-weight:600; font-size:0.75rem;}
+  .ant-tabla thead th:first-child{text-align:left; position:sticky; left:0; background:var(--azul);}
+  .ant-tabla tbody td:first-child{text-align:left; font-weight:600; color:var(--texto); position:sticky; left:0; background:#fafcfe;}
+  .ant-tabla tbody tr:nth-child(even) td{background:#f8fbfe;}
+  .ant-tabla tbody tr:nth-child(even) td:first-child{background:#f1f6fb;}
+
   /* ---------- RESUMEN DE HOY ---------- */
   .resumen-item{
     display:flex;
@@ -742,6 +752,13 @@
       <!-- ---- HISTORIAL ---- -->
       <div class="panel" id="panel-historial">
         <div class="card">
+          <h3>📏 Medidas cargadas por tu médico/a</h3>
+          <p class="campo-opcional-label" style="margin-bottom:12px;">Esto lo carga tu médico/a en el consultorio. Es solo para que puedas ver tu evolución.</p>
+          <div id="listaAntropometriaClinica">
+            <div class="vacio">Cargando...</div>
+          </div>
+        </div>
+        <div class="card">
           <h3>Últimos registros</h3>
           <div id="listaHistorial">
             <div class="vacio">Cargando...</div>
@@ -989,6 +1006,7 @@ async function cargarPaciente(){
 
     cargarMensaje();
     cargarHistorial();
+    cargarAntropometriaClinica();
   }catch(e){
     console.error(e);
     const errBox = document.getElementById('loginError');
@@ -1021,7 +1039,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
     tab.classList.add('active');
     document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
-    if(tab.dataset.tab === 'historial') cargarHistorial();
+    if(tab.dataset.tab === 'historial') { cargarHistorial(); cargarAntropometriaClinica(); }
     if(tab.dataset.tab === 'habitos') cargarPanelHabitos();
     if(tab.dataset.tab === 'resumen') cargarResumenSemanal();
   });
@@ -1553,6 +1571,91 @@ function renderizarResumenSueno(habitos){
 }
 
 // ═══ HISTORIAL ═══
+// ═══ ANTROPOMETRÍA CLÍNICA (solo lectura, cargada por el/la médico/a en URCyM) ═══
+// Se lee de la misma base (tabla paciente_tablas, tipo 'ant'), matcheando por DNI.
+async function cargarAntropometriaClinica(){
+  if(!pacienteActual) return;
+  const cont = document.getElementById('listaAntropometriaClinica');
+  cont.innerHTML = '<div class="vacio">Cargando...</div>';
+
+  const { data, error } = await sb
+    .from('paciente_tablas')
+    .select('datos')
+    .eq('dni_paciente', pacienteActual.dni)
+    .eq('tipo', 'ant')
+    .maybeSingle();
+
+  if(error){
+    console.error('[cargarAntropometriaClinica]', error);
+    cont.innerHTML = '<div class="vacio">No se pudo cargar esta información.</div>';
+    return;
+  }
+
+  let ant = null;
+  try { ant = data?.datos ? JSON.parse(data.datos) : null; } catch(e) { ant = null; }
+
+  if(!ant || !ant.columnas || !ant.columnas.length){
+    cont.innerHTML = '<div class="vacio">Tu médico/a todavía no cargó medidas.</div>';
+    return;
+  }
+
+  // Filas de interés para el paciente: Peso, IMC (calculado) y Cintura.
+  const FILAS_PAC = [
+    { key:'Peso',    nombre:'Peso',    unidad:'kg' },
+    { key:'IMC',     nombre:'IMC',     unidad:'kg/m²' },
+    { key:'Cintura', nombre:'Cintura', unidad:'cm' },
+  ];
+  const idxKey = k => (ant.columnas || []).map((_,ci)=>ci); // todas las columnas disponibles
+
+  // Buscamos el índice de fila real dentro de ant.filas según el orden guardado por URCyM
+  // (Peso, Altura, IMC, Cintura, Cadera, Cuello, ...) — si no coincide, calculamos IMC nosotros.
+  const ORDEN_URCYM = ['Peso','Altura','IMC','Cintura','Cadera','Cuello','CintEst','CintCad','PctGrasa','PctMusculo','GrasaVisceral','FueraPres'];
+  const filaDe = key => {
+    const fi = ORDEN_URCYM.indexOf(key);
+    return fi >= 0 ? (ant.filas[fi] || []) : [];
+  };
+
+  const filaPeso = filaDe('Peso');
+  const filaAltura = filaDe('Altura');
+  let filaIMC = filaDe('IMC');
+  const filaCintura = filaDe('Cintura');
+
+  // Últimas 6 fechas que tengan al menos un dato de peso, IMC o cintura
+  const colsConDato = ant.columnas.map((_,ci)=>ci).filter(ci =>
+    (filaPeso[ci] || filaIMC[ci] || filaCintura[ci]));
+  const colsMostrar = colsConDato.slice(-6);
+
+  if(!colsMostrar.length){
+    cont.innerHTML = '<div class="vacio">Tu médico/a todavía no cargó medidas.</div>';
+    return;
+  }
+
+  const fmtF = iso => { try { return new Date(iso+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}); } catch(e){ return iso; } };
+
+  const theadCols = colsMostrar.map(ci => `<th>${fmtF(ant.columnas[ci])}</th>`).join('');
+
+  const filaHTML = (nombre, unidad, valores) => {
+    const tds = colsMostrar.map(ci => {
+      let v = valores[ci];
+      if(nombre === 'IMC' && !v){
+        const p = parseFloat(filaPeso[ci]), a = parseFloat(filaAltura[ci]);
+        if(p && a) v = (p / ((a/100)*(a/100))).toFixed(1);
+      }
+      return `<td>${v ? v + (unidad ? ' ' + unidad : '') : '—'}</td>`;
+    }).join('');
+    return `<tr><td>${nombre}</td>${tds}</tr>`;
+  };
+
+  cont.innerHTML = `<div class="ant-tabla-wrap"><table class="ant-tabla">
+    <thead><tr><th>Fecha</th>${theadCols}</tr></thead>
+    <tbody>
+      ${filaHTML('Peso', 'kg', filaPeso)}
+      ${filaHTML('IMC', '', filaIMC)}
+      ${filaHTML('Cintura', 'cm', filaCintura)}
+    </tbody>
+  </table></div>`;
+}
+
 async function cargarHistorial(){
   if(!pacienteActual) return;
   const cont = document.getElementById('listaHistorial');
