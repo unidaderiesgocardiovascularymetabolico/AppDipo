@@ -666,6 +666,28 @@
     cursor:pointer;
     margin-top:10px;
   }
+
+  /* ---------- CALENDARIO SEMANAL DE HÁBITOS ---------- */
+  .calendario-semana{display:flex; gap:5px; justify-content:space-between;}
+  .dia-semana-btn{
+    flex:1;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    padding:9px 2px;
+    border-radius:10px;
+    border:1.5px solid var(--gris);
+    background:var(--blanco);
+    font-family:inherit;
+    cursor:pointer;
+  }
+  .dia-semana-btn .letra{font-size:0.72rem; font-weight:700; color:var(--texto-suave);}
+  .dia-semana-btn .numero{font-size:0.85rem; font-weight:700; color:var(--texto);}
+  .dia-semana-btn.seleccionado{border-color:var(--azul); background:#EAF5F9;}
+  .dia-semana-btn.seleccionado .letra, .dia-semana-btn.seleccionado .numero{color:var(--azul);}
+  .dia-semana-btn.completado{border-color:var(--teal); background:#EAFAF9; cursor:default;}
+  .dia-semana-btn.completado .letra, .dia-semana-btn.completado .numero{color:var(--teal);}
+  .dia-semana-btn.futuro{opacity:0.4; cursor:default;}
+  .calendario-etiqueta{font-size:0.82rem; color:var(--texto-suave); margin-top:12px; text-align:center;}
+  .vacio-semana{text-align:center; color:var(--texto-suave); font-size:0.9rem; padding:24px 16px; line-height:1.5;}
 </style>
 </head>
 <body>
@@ -704,7 +726,7 @@
     <main>
       <div class="tabs">
         <div class="tab active" data-tab="registro">Hoy</div>
-        <div class="tab" data-tab="habitos">Hábitos de hoy</div>
+        <div class="tab" data-tab="habitos">Hábitos</div>
         <div class="tab" data-tab="resumen">Resumen semanal</div>
         <div class="tab" data-tab="historial">Mi evolución</div>
         <div class="tab" data-tab="ayuda">Ayuda</div>
@@ -789,6 +811,13 @@
       <!-- ---- HABITOS ---- -->
       <div class="panel" id="panel-habitos">
         <div class="card">
+          <h3>Elegí el día a cargar</h3>
+          <div class="calendario-semana" id="calendarioSemanaHabitos"></div>
+          <div class="calendario-etiqueta" id="etiquetaDiaHabitos"></div>
+        </div>
+
+        <div id="contenidoHabitosDia">
+        <div class="card">
           <h3>Resumen de hoy</h3>
           <div class="resumen-item" id="resumenActividad">
             <span class="resumen-icono">⏳</span>
@@ -843,6 +872,11 @@
         </div>
 
         <button class="btn btn-primary" id="btnGuardarHabitos">Guardar hábitos de hoy</button>
+        </div>
+
+        <div class="card vacio-semana" id="habitosCompletoMsg" style="display:none;">
+          ✅ Ya cargaste los hábitos de todos los días disponibles de esta semana.<br>¡Volvé mañana para seguir sumando!
+        </div>
       </div>
 
       <!-- ---- RESUMEN SEMANAL ---- -->
@@ -1572,6 +1606,126 @@ function renderizarListaObjetivos(contenedorId, objetivos){
   `).join('');
 }
 
+// ═══ CALENDARIO SEMANAL DE HÁBITOS ═══
+// Semana de lunes a domingo. Un día ya cargado queda bloqueado (no se puede
+// volver a tocar) hasta la semana siguiente.
+const NOMBRES_DIAS_SEMANA = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+const LETRAS_DIAS_SEMANA = ['L','M','M','J','V','S','D'];
+
+let diaSeleccionadoHabitos = null; // fecha (YYYY-MM-DD) del día que se está cargando
+let mapaHabitosSemana = {};        // { 'YYYY-MM-DD': registroDeHabitos }
+
+function obtenerDiasSemanaActual(){
+  const hoy = new Date();
+  const diaSemana = hoy.getDay(); // 0=domingo,1=lunes,...,6=sábado
+  const offsetLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
+  const lunes = new Date(hoy);
+  lunes.setDate(hoy.getDate() + offsetLunes);
+  lunes.setHours(0,0,0,0);
+
+  const dias = [];
+  for(let i=0;i<7;i++){
+    const d = new Date(lunes);
+    d.setDate(lunes.getDate() + i);
+    dias.push(d);
+  }
+  return dias;
+}
+
+function fechaISO(d){
+  return d.toISOString().slice(0,10);
+}
+
+function renderizarCalendarioSemana(){
+  const cont = document.getElementById('calendarioSemanaHabitos');
+  const dias = obtenerDiasSemanaActual();
+  const fechaHoy = fechaISO(new Date());
+
+  cont.innerHTML = dias.map((d,i)=>{
+    const fecha = fechaISO(d);
+    const completado = !!mapaHabitosSemana[fecha];
+    const futuro = fecha > fechaHoy;
+    const seleccionado = fecha === diaSeleccionadoHabitos;
+
+    let clases = 'dia-semana-btn';
+    if(completado) clases += ' completado';
+    else if(futuro) clases += ' futuro';
+    if(seleccionado) clases += ' seleccionado';
+
+    return `<button type="button" class="${clases}" data-fecha="${fecha}" ${completado || futuro ? 'disabled' : ''}>
+      <span class="letra">${LETRAS_DIAS_SEMANA[i]}</span>
+      <span class="numero">${completado ? '✓' : d.getDate()}</span>
+    </button>`;
+  }).join('');
+
+  cont.querySelectorAll('.dia-semana-btn:not([disabled])').forEach(btn=>{
+    btn.addEventListener('click', ()=> seleccionarDiaHabitos(btn.dataset.fecha));
+  });
+
+  actualizarEtiquetaDia();
+}
+
+function actualizarEtiquetaDia(){
+  const etiqueta = document.getElementById('etiquetaDiaHabitos');
+  const contenido = document.getElementById('contenidoHabitosDia');
+  const msgCompleto = document.getElementById('habitosCompletoMsg');
+  const btnGuardar = document.getElementById('btnGuardarHabitos');
+
+  if(!diaSeleccionadoHabitos){
+    etiqueta.textContent = '';
+    contenido.style.display = 'none';
+    msgCompleto.style.display = 'block';
+    return;
+  }
+
+  contenido.style.display = 'block';
+  msgCompleto.style.display = 'none';
+
+  const d = new Date(diaSeleccionadoHabitos + 'T00:00:00');
+  const nombreDia = NOMBRES_DIAS_SEMANA[d.getDay() === 0 ? 6 : d.getDay() - 1];
+  const fechaHoy = fechaISO(new Date());
+  const esHoy = diaSeleccionadoHabitos === fechaHoy;
+
+  etiqueta.textContent = esHoy
+    ? `Estás cargando los hábitos de hoy, ${nombreDia.toLowerCase()}.`
+    : `Estás cargando los hábitos del ${nombreDia.toLowerCase()} ${d.getDate()}.`;
+
+  btnGuardar.textContent = esHoy ? 'Guardar hábitos de hoy' : `Guardar hábitos del ${nombreDia.toLowerCase()}`;
+}
+
+function elegirDiaPorDefecto(){
+  const dias = obtenerDiasSemanaActual();
+  const fechaHoy = fechaISO(new Date());
+
+  // Preferimos hoy si todavía no está cargado.
+  if(!mapaHabitosSemana[fechaHoy]) return fechaHoy;
+
+  // Si hoy ya está cargado, buscamos el día disponible más reciente
+  // (por si se saltó algún día anterior de esta semana).
+  for(let i=dias.length-1;i>=0;i--){
+    const f = fechaISO(dias[i]);
+    if(f <= fechaHoy && !mapaHabitosSemana[f]) return f;
+  }
+  return null; // no queda ningún día disponible esta semana
+}
+
+function seleccionarDiaHabitos(fecha){
+  diaSeleccionadoHabitos = fecha;
+
+  // El día elegido siempre está vacío (los completados quedan bloqueados),
+  // así que reseteamos el formulario.
+  document.querySelectorAll('.chk-objetivo[data-tipo="actividad"]').forEach(chk=> chk.checked = false);
+  estadoDash = {};
+  document.getElementById('inSuenoHoras').value = '';
+  document.getElementById('inPasosHoy').value = '';
+  document.getElementById('inPantallaHoy').value = '';
+  document.getElementById('inPausasHoy').value = '';
+  renderizarListaDash();
+  actualizarResumenHabitos();
+
+  renderizarCalendarioSemana();
+}
+
 async function cargarPanelHabitos(){
   if(!pacienteActual) return;
 
@@ -1598,41 +1752,40 @@ async function cargarPanelHabitos(){
 
   document.getElementById('campoPausasActivas').style.display = pacienteActual.objetivo_pausas_activas ? 'block' : 'none';
 
-  // Si ya cargó hábitos hoy, pre-marcamos todo lo que ya había cargado
-  const hoy = new Date().toISOString().slice(0,10);
-  const { data } = await sb
-    .from('appdipo_habitos')
-    .select('actividad_json, alimentacion_dash_json, sueno_horas, pasos, pantalla_horas, pausas_activas_realizadas')
-    .eq('dni', pacienteActual.dni)
-    .eq('fecha', hoy)
-    .maybeSingle();
+  // Traemos los hábitos de TODA la semana actual (lunes a domingo) para saber
+  // qué días ya quedaron cargados y bloqueados.
+  const dias = obtenerDiasSemanaActual();
+  const fechaLunes = fechaISO(dias[0]);
+  const fechaDomingo = fechaISO(dias[6]);
 
-  if(data){
-    document.querySelectorAll('.chk-objetivo[data-tipo="actividad"]').forEach(chk=>{
-      if(data.actividad_json && data.actividad_json[chk.dataset.key]) chk.checked = true;
-    });
-    estadoDash = data.alimentacion_dash_json || {};
-    document.getElementById('inSuenoHoras').value = data.sueno_horas ?? '';
-    document.getElementById('inPasosHoy').value = data.pasos ?? '';
-    document.getElementById('inPantallaHoy').value = data.pantalla_horas ?? '';
-    document.getElementById('inPausasHoy').value = data.pausas_activas_realizadas ?? '';
-  } else {
-    estadoDash = {};
-    document.getElementById('inSuenoHoras').value = '';
-    document.getElementById('inPasosHoy').value = '';
-    document.getElementById('inPantallaHoy').value = '';
-    document.getElementById('inPausasHoy').value = '';
-  }
+  const { data: habitosSemana } = await sb
+    .from('appdipo_habitos')
+    .select('fecha')
+    .eq('dni', pacienteActual.dni)
+    .gte('fecha', fechaLunes)
+    .lte('fecha', fechaDomingo);
+
+  mapaHabitosSemana = {};
+  (habitosSemana || []).forEach(h=>{ mapaHabitosSemana[h.fecha] = true; });
+
+  diaSeleccionadoHabitos = elegirDiaPorDefecto();
+
+  estadoDash = {};
+  document.getElementById('inSuenoHoras').value = '';
+  document.getElementById('inPasosHoy').value = '';
+  document.getElementById('inPantallaHoy').value = '';
+  document.getElementById('inPausasHoy').value = '';
 
   renderizarListaDash();
   actualizarResumenHabitos();
+  renderizarCalendarioSemana();
 }
 
 // ═══ GUARDAR HABITOS ═══
 document.getElementById('btnGuardarHabitos').addEventListener('click', guardarHabitos);
 
 async function guardarHabitos(){
-  if(!pacienteActual) return;
+  if(!pacienteActual || !diaSeleccionadoHabitos) return;
 
   const actividad_json = {};
   document.querySelectorAll('.chk-objetivo[data-tipo="actividad"]').forEach(chk=>{
@@ -1646,7 +1799,7 @@ async function guardarHabitos(){
     ? (parseInt(document.getElementById('inPausasHoy').value, 10) || null)
     : null;
 
-  const hoy = new Date().toISOString().slice(0,10);
+  const fechaAGuardar = diaSeleccionadoHabitos;
 
   const btn = document.getElementById('btnGuardarHabitos');
   btn.disabled = true;
@@ -1658,31 +1811,25 @@ async function guardarHabitos(){
     sueno_horas, pasos, pantalla_horas, pausas_activas_realizadas
   };
 
-  // upsert manual: buscamos si ya existe un registro de hábitos para hoy
-  const { data: existente } = await sb
-    .from('appdipo_habitos')
-    .select('id')
-    .eq('dni', pacienteActual.dni)
-    .eq('fecha', hoy)
-    .maybeSingle();
-
-  let error;
-  if(existente){
-    ({ error } = await sb.from('appdipo_habitos')
-      .update(camposComunes)
-      .eq('id', existente.id));
-  } else {
-    ({ error } = await sb.from('appdipo_habitos')
-      .insert([{ dni: pacienteActual.dni, fecha: hoy, ...camposComunes }]));
-  }
+  const { error } = await sb.from('appdipo_habitos')
+    .insert([{ dni: pacienteActual.dni, fecha: fechaAGuardar, ...camposComunes }]);
 
   btn.disabled = false;
-  btn.textContent = 'Guardar hábitos de hoy';
 
   if(error){
     console.error(error);
+    btn.textContent = 'Guardar hábitos de hoy';
     mostrarToast('Hubo un error al guardar. Probá de nuevo.', false);
     return;
+  }
+
+  // El día recién guardado queda bloqueado; buscamos el próximo día disponible.
+  mapaHabitosSemana[fechaAGuardar] = true;
+  diaSeleccionadoHabitos = elegirDiaPorDefecto();
+  if(diaSeleccionadoHabitos){
+    seleccionarDiaHabitos(diaSeleccionadoHabitos);
+  } else {
+    renderizarCalendarioSemana();
   }
 
   mostrarToast('¡Hábitos guardados! Seguí así 💪');
