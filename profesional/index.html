@@ -246,6 +246,32 @@
     letter-spacing:1px;
   }
   .modal-nota{font-size:0.75rem !important; margin-bottom:18px !important;}
+
+  /* ---------- OBJETIVOS DE ALIMENTACIÓN (DASH) ---------- */
+  .obj-ali-fila{
+    display:flex; align-items:center; gap:12px;
+    padding:10px 4px; border-bottom:1px solid #F0F0F0;
+  }
+  .obj-ali-fila:last-child{border-bottom:none;}
+  .obj-ali-icono{font-size:18px; width:26px; text-align:center; flex-shrink:0;}
+  .obj-ali-nombre{flex:1; font-size:0.88rem; font-weight:600; color:var(--texto);}
+  .obj-ali-input-wrap{display:flex; align-items:center; gap:6px; flex-shrink:0;}
+  .obj-ali-input-wrap input{
+    width:64px; padding:7px 8px; border:1.5px solid var(--gris); border-radius:8px;
+    font-size:0.9rem; font-family:inherit; text-align:center;
+  }
+  .obj-ali-input-wrap input:focus{outline:none; border-color:var(--azul);}
+  .obj-ali-input-wrap span{font-size:0.72rem; color:var(--texto-suave); white-space:nowrap;}
+  .obj-ali-guardado{font-size:0.8rem; color:#1F9D6D; margin-top:8px; display:none;}
+
+  /* ---------- HÁBITOS RECIENTES (DASH, día por día) ---------- */
+  .habito-dia-dash{padding:10px 4px; border-bottom:1px solid #F0F0F0;}
+  .habito-dia-dash:last-child{border-bottom:none;}
+  .habito-dia-dash .fecha{font-size:0.8rem; font-weight:700; color:var(--azul); margin-bottom:6px;}
+  .habito-dia-dash .chips{display:flex; flex-wrap:wrap; gap:5px;}
+  .dash-chip{font-size:0.72rem; font-weight:600; padding:3px 8px; border-radius:20px; background:#F0F0F0; color:var(--texto-suave);}
+  .dash-chip.cumplido{background:#E4F5F0; color:#1F9D6D;}
+  .dash-chip.no-cumplido{background:#FCEBEA; color:var(--coral);}
 </style>
 </head>
 <body>
@@ -337,6 +363,14 @@
     </div>
 
     <div class="card">
+      <h3>🥗 Objetivos de alimentación (dieta DASH)</h3>
+      <p style="font-size:0.82rem;color:var(--texto-suave);margin:0 0 14px;">Dejá vacío un campo para que el paciente vea el valor de referencia general de la dieta DASH en vez de un objetivo personalizado.</p>
+      <div id="objetivosAlimentacion"></div>
+      <button class="btn btn-primary" id="btnGuardarObjetivos" style="margin-top:12px;width:auto;padding:10px 22px;">💾 Guardar objetivos</button>
+      <div class="obj-ali-guardado" id="objAliGuardadoMsg">✓ Objetivos guardados.</div>
+    </div>
+
+    <div class="card">
       <h3>Hábitos recientes</h3>
       <div class="habitos-grid" id="habitosRecientes"></div>
     </div>
@@ -367,6 +401,23 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let usuarioActual = null;
 let pacientesCache = [];
 let pacienteSeleccionado = null;
+
+// Mismos grupos/keys que usa AppDipo pacientes en "Alimentación DASH de hoy".
+// campo = columna en appdipo_pacientes donde se guarda el objetivo personalizado.
+// defRef = valor de referencia general de la dieta DASH si el profesional no cargó nada.
+const CATALOGO_DASH_OBJ = [
+  { key:'granos',                  campo:'objetivo_granos_porciones',                 icono:'🌾', nombre:'Granos integrales',        defRef:6 },
+  { key:'verduras',                campo:'objetivo_verduras_porciones',               icono:'🥦', nombre:'Verduras',                 defRef:4 },
+  { key:'frutas',                  campo:'objetivo_frutas_porciones',                 icono:'🍎', nombre:'Frutas',                   defRef:4 },
+  { key:'calcio',                  campo:'objetivo_calcio_porciones',                 icono:'🥛', nombre:'Lácteos / calcio',         defRef:2.5 },
+  { key:'proteinas',               campo:'objetivo_proteinas_porciones',              icono:'🍗', nombre:'Proteínas',                defRef:3 },
+  { key:'frutos_secos_legumbres',  campo:'objetivo_frutos_secos_legumbres_porciones', icono:'🥜', nombre:'Frutos secos y legumbres', defRef:1 },
+];
+
+function obtenerObjetivoDashProf(paciente, cat){
+  const v = paciente ? paciente[cat.campo] : null;
+  return (v != null && v !== '') ? v : cat.defRef;
+}
 
 const vistaLogin = document.getElementById('vista-login');
 const vistaApp = document.getElementById('vista-app');
@@ -541,7 +592,64 @@ async function abrirFicha(dni){
   renderizarStats(registros || []);
   renderizarGrafico(registros || []);
   renderizarTabla(registros || []);
+  renderObjetivosAlimentacion(pacienteSeleccionado);
   cargarHabitosRecientes(dni);
+}
+
+// ═══ OBJETIVOS DE ALIMENTACIÓN (DASH) ═══
+function renderObjetivosAlimentacion(paciente){
+  const cont = document.getElementById('objetivosAlimentacion');
+  document.getElementById('objAliGuardadoMsg').style.display = 'none';
+
+  cont.innerHTML = CATALOGO_DASH_OBJ.map(cat=>{
+    const valorActual = paciente ? paciente[cat.campo] : null;
+    return `<div class="obj-ali-fila">
+      <span class="obj-ali-icono">${cat.icono}</span>
+      <span class="obj-ali-nombre">${cat.nombre}</span>
+      <div class="obj-ali-input-wrap">
+        <input type="number" min="0" step="0.5" id="objali_${cat.key}"
+          value="${valorActual != null ? valorActual : ''}" placeholder="${cat.defRef}">
+        <span>porciones/día</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('btnGuardarObjetivos').addEventListener('click', guardarObjetivosAlimentacion);
+
+async function guardarObjetivosAlimentacion(){
+  if(!pacienteSeleccionado) return;
+  const btn = document.getElementById('btnGuardarObjetivos');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  const payload = {};
+  CATALOGO_DASH_OBJ.forEach(cat=>{
+    const el = document.getElementById('objali_' + cat.key);
+    if(!el) return;
+    const v = el.value.trim();
+    payload[cat.campo] = v === '' ? null : parseFloat(v);
+  });
+
+  const { error } = await sb.from('appdipo_pacientes').update(payload).eq('dni', pacienteSeleccionado.dni);
+
+  btn.disabled = false;
+  btn.textContent = '💾 Guardar objetivos';
+
+  if(error){
+    console.error(error);
+    alert('No se pudieron guardar los objetivos: ' + error.message);
+    return;
+  }
+
+  // Reflejar los nuevos valores en la caché local (paciente seleccionado y lista general)
+  Object.assign(pacienteSeleccionado, payload);
+  const enCache = pacientesCache.find(p=>p.dni === pacienteSeleccionado.dni);
+  if(enCache) Object.assign(enCache, payload);
+
+  const msg = document.getElementById('objAliGuardadoMsg');
+  msg.style.display = 'block';
+  setTimeout(()=>{ msg.style.display = 'none'; }, 4000);
 }
 
 // ═══ HABILITAR / RESTABLECER ACCESO ═══
@@ -664,15 +772,23 @@ async function cargarHabitosRecientes(dni){
     return;
   }
 
+  const categoriasConObjetivo = CATALOGO_DASH_OBJ;
+
   cont.innerHTML = data.map(h=>{
-    const fecha = new Date(h.fecha).toLocaleDateString('es-AR', { day:'2-digit', month:'short' });
-    const act = h.actividad_json || {};
-    const alim = h.alimentacion_json || {};
-    const todos = [act.aerobica, act.fuerza, act.caminata, alim.frutas_verduras, alim.hidratacion, alim.evito_ultraprocesados];
-    const pips = todos.map(v => `<span class="pip ${v ? 'on' : ''}"></span>`).join('');
-    return `<div class="habito-dia">
-      <span>${fecha}</span>
-      <div class="pips">${pips}</div>
+    const fecha = new Date(h.fecha).toLocaleDateString('es-AR', { weekday:'short', day:'2-digit', month:'short' });
+    const dash = h.alimentacion_dash_json || {};
+    const huevo = dash.huevo || 0;
+
+    const chips = categoriasConObjetivo.map(cat=>{
+      const objetivo = obtenerObjetivoDashProf(pacienteSeleccionado, cat);
+      const consumido = dash[cat.key] || 0;
+      const cumplido = consumido >= objetivo;
+      return `<span class="dash-chip ${cumplido ? 'cumplido' : 'no-cumplido'}">${cat.icono} ${consumido}/${objetivo}</span>`;
+    }).join('') + (huevo ? `<span class="dash-chip">🥚 ${huevo}</span>` : '');
+
+    return `<div class="habito-dia-dash">
+      <div class="fecha">${fecha}</div>
+      <div class="chips">${chips || '<span class="dash-chip">Sin datos de alimentación este día</span>'}</div>
     </div>`;
   }).join('');
 }
