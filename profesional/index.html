@@ -172,6 +172,23 @@
 
   .grafico-wrap{overflow-x:auto;}
 
+  .thumb-foto{
+    width:38px; height:38px;
+    object-fit:cover;
+    border-radius:6px;
+    border:1px solid var(--gris);
+    cursor:pointer;
+    display:block;
+  }
+  .badge-animo{
+    display:inline-block;
+    font-size:0.72rem;
+    font-weight:700;
+    padding:3px 8px;
+    border-radius:20px;
+    white-space:nowrap;
+  }
+
   .habitos-grid{display:flex; flex-direction:column; gap:8px;}
   .habito-dia{
     display:flex;
@@ -358,7 +375,7 @@
       <div style="overflow-x:auto;">
         <table class="evolucion">
           <thead>
-            <tr><th>Fecha</th><th>Peso</th><th>Cintura</th><th>Cadera</th><th>Cuello</th><th>Nota</th></tr>
+            <tr><th>Fecha</th><th>Peso</th><th>Cintura</th><th>Cadera</th><th>Cuello</th><th>Brazo</th><th>Muslo</th><th>Ánimo</th><th>Foto</th><th>Nota</th></tr>
           </thead>
           <tbody id="tablaEvolucion"></tbody>
         </table>
@@ -431,6 +448,18 @@ const CATALOGO_ALIMENTACION = [
   { key:'agua',         label:'Agua — 8 vasos por día' },
   { key:'legumbres',    label:'Legumbres — 2 a 3 veces por semana' },
 ];
+
+// Escala de Caritas (Andrews & Withey, 1976) — igual que en AppDipo pacientes.
+// Valor 1 = Terrible ... 7 = Encantado/a. Colores de coral (mal) a teal (bien).
+const ESCALA_CARITAS = {
+  1:{ etiqueta:'Terrible',                  color:'#FCEBEA', texto:'#C0392B' },
+  2:{ etiqueta:'Infeliz',                   color:'#FCEBEA', texto:'#C0392B' },
+  3:{ etiqueta:'Insatisfecho/a',            color:'#FDF3E3', texto:'#B8790A' },
+  4:{ etiqueta:'Mixto',                     color:'#F0F0F0', texto:'#6B7280' },
+  5:{ etiqueta:'Contento/a en general',     color:'#EAF7F6', texto:'#2C8C8E' },
+  6:{ etiqueta:'Muy contento/a',            color:'#E4F5F0', texto:'#1F9D6D' },
+  7:{ etiqueta:'Encantado/a',               color:'#E4F5F0', texto:'#1F9D6D' }
+};
 
 const vistaLogin = document.getElementById('vista-login');
 const vistaApp = document.getElementById('vista-app');
@@ -759,18 +788,33 @@ function renderizarTabla(registros){
   const invertidos = [...registros].reverse();
 
   if(!invertidos.length){
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#6B7280; padding:20px;">Sin registros todavía.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#6B7280; padding:20px;">Sin registros todavía.</td></tr>';
     return;
   }
 
   tbody.innerHTML = invertidos.map(r=>{
     const fecha = new Date(r.fecha).toLocaleDateString('es-AR', { day:'2-digit', month:'short', year:'numeric' });
+
+    let animoHtml = '—';
+    if(r.animo != null && ESCALA_CARITAS[r.animo]){
+      const a = ESCALA_CARITAS[r.animo];
+      animoHtml = `<span class="badge-animo" style="background:${a.color}; color:${a.texto};">${a.etiqueta}</span>`;
+    }
+
+    const fotoHtml = r.foto_url
+      ? `<img src="${r.foto_url}" class="thumb-foto" alt="Foto de progreso" onclick="window.open('${r.foto_url}', '_blank')">`
+      : '—';
+
     return `<tr>
       <td>${fecha}</td>
       <td>${r.peso_kg != null ? r.peso_kg + ' kg' : '—'}</td>
       <td>${r.cintura_cm != null ? r.cintura_cm + ' cm' : '—'}</td>
       <td>${r.cadera_cm != null ? r.cadera_cm + ' cm' : '—'}</td>
       <td>${r.cuello_cm != null ? r.cuello_cm + ' cm' : '—'}</td>
+      <td>${r.brazo_cm != null ? r.brazo_cm + ' cm' : '—'}</td>
+      <td>${r.muslo_cm != null ? r.muslo_cm + ' cm' : '—'}</td>
+      <td>${animoHtml}</td>
+      <td>${fotoHtml}</td>
       <td>${r.nota || '—'}</td>
     </tr>`;
   }).join('');
