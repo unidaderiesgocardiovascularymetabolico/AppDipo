@@ -264,6 +264,23 @@
   .obj-ali-input-wrap span{font-size:0.72rem; color:var(--texto-suave); white-space:nowrap;}
   .obj-ali-guardado{font-size:0.8rem; color:#1F9D6D; margin-top:8px; display:none;}
 
+  .obj-selector-fila{margin-bottom:14px;}
+  .obj-selector-fila label{display:block; font-size:0.78rem; font-weight:600; color:var(--texto-suave); margin-bottom:6px;}
+  .obj-selector-fila select, .obj-calculo-sub select{
+    width:100%; padding:9px 10px; border:1.5px solid var(--gris); border-radius:8px;
+    font-size:0.9rem; font-family:inherit; background:var(--blanco); color:var(--texto);
+  }
+  .obj-selector-fila select:focus, .obj-calculo-sub select:focus{outline:none; border-color:var(--azul);}
+  .obj-calculo-fila{display:flex; gap:16px; flex-wrap:wrap; margin-top:16px; padding-top:14px; border-top:1px solid #F0F0F0;}
+  .obj-calculo-sub{flex:1; min-width:220px;}
+  .obj-calculo-sub label{display:block; font-size:0.78rem; font-weight:600; color:var(--texto-suave); margin-bottom:6px;}
+  .btn-calcular{
+    margin-top:8px; background:none; border:1.5px solid var(--teal); color:var(--teal);
+    padding:7px 12px; border-radius:8px; font-size:0.78rem; font-weight:600; font-family:inherit; cursor:pointer;
+  }
+  .btn-calcular:hover{background:#EAFAF9;}
+  .obj-ayuda{font-size:0.76rem; color:var(--texto-suave); margin-top:8px; line-height:1.4;}
+
   /* ---------- HÁBITOS RECIENTES (DASH, día por día) ---------- */
   .habito-dia-dash{padding:10px 4px; border-bottom:1px solid #F0F0F0;}
   .habito-dia-dash:last-child{border-bottom:none;}
@@ -363,10 +380,38 @@
     </div>
 
     <div class="card">
-      <h3>🥗 Objetivos de alimentación (dieta DASH)</h3>
-      <p style="font-size:0.82rem;color:var(--texto-suave);margin:0 0 14px;">Dejá vacío un campo para que el paciente vea el valor de referencia general de la dieta DASH en vez de un objetivo personalizado.</p>
+      <h3>🥗 Objetivos de alimentación</h3>
+      <p style="font-size:0.82rem;color:var(--texto-suave);margin:0 0 14px;">Elegí el patrón alimentario: los valores de referencia se ajustan solos. Dejá vacío un campo para que el paciente vea el valor de referencia general en vez de un objetivo personalizado.</p>
+
+      <div class="obj-selector-fila">
+        <label for="selTipoAlimentacion">Tipo de alimentación</label>
+        <select id="selTipoAlimentacion">
+          <option value="DASH">Dieta DASH</option>
+          <option value="MEDITERRANEO">Dieta mediterránea</option>
+        </select>
+      </div>
+
       <div id="objetivosAlimentacion"></div>
-      <button class="btn btn-primary" id="btnGuardarObjetivos" style="margin-top:12px;width:auto;padding:10px 22px;">💾 Guardar objetivos</button>
+
+      <div class="obj-calculo-fila">
+        <div class="obj-calculo-sub">
+          <label for="selNivelProteico">Aporte proteico</label>
+          <select id="selNivelProteico">
+            <option value="normo">Normoproteico (1.0 g/kg/día)</option>
+            <option value="hipo">Hipoproteico (0.8 g/kg/día)</option>
+            <option value="hiper">Hiperproteico (1.5 g/kg/día)</option>
+          </select>
+          <button class="btn-calcular" id="btnSugerirProteina" type="button">🧮 Calcular según peso</button>
+          <div class="obj-ayuda" id="ayudaProteina"></div>
+        </div>
+        <div class="obj-calculo-sub">
+          <label>Calcio necesario</label>
+          <button class="btn-calcular" id="btnSugerirCalcio" type="button">🧮 Calcular según edad / OMS</button>
+          <div class="obj-ayuda" id="ayudaCalcio"></div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="btnGuardarObjetivos" style="margin-top:16px;width:auto;padding:10px 22px;">💾 Guardar objetivos</button>
       <div class="obj-ali-guardado" id="objAliGuardadoMsg">✓ Objetivos guardados.</div>
     </div>
 
@@ -401,22 +446,56 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let usuarioActual = null;
 let pacientesCache = [];
 let pacienteSeleccionado = null;
+let pesoActualPaciente = null;
 
 // Mismos grupos/keys que usa AppDipo pacientes en "Alimentación DASH de hoy".
 // campo = columna en appdipo_pacientes donde se guarda el objetivo personalizado.
-// defRef = valor de referencia general de la dieta DASH si el profesional no cargó nada.
+// El valor de referencia (si el profesional no cargó nada) depende del tipo de
+// alimentación elegido (DASH o Mediterránea) — ver REFERENCIAS_ALIMENTACION.
 const CATALOGO_DASH_OBJ = [
-  { key:'granos',                  campo:'objetivo_granos_porciones',                 icono:'🌾', nombre:'Granos integrales',        defRef:6 },
-  { key:'verduras',                campo:'objetivo_verduras_porciones',               icono:'🥦', nombre:'Verduras',                 defRef:4 },
-  { key:'frutas',                  campo:'objetivo_frutas_porciones',                 icono:'🍎', nombre:'Frutas',                   defRef:4 },
-  { key:'calcio',                  campo:'objetivo_calcio_porciones',                 icono:'🥛', nombre:'Lácteos / calcio',         defRef:2.5 },
-  { key:'proteinas',               campo:'objetivo_proteinas_porciones',              icono:'🍗', nombre:'Proteínas',                defRef:3 },
-  { key:'frutos_secos_legumbres',  campo:'objetivo_frutos_secos_legumbres_porciones', icono:'🥜', nombre:'Frutos secos y legumbres', defRef:1 },
+  { key:'granos',                  campo:'objetivo_granos_porciones',                 icono:'🌾', nombre:'Granos integrales' },
+  { key:'verduras',                campo:'objetivo_verduras_porciones',               icono:'🥦', nombre:'Verduras' },
+  { key:'frutas',                  campo:'objetivo_frutas_porciones',                 icono:'🍎', nombre:'Frutas' },
+  { key:'calcio',                  campo:'objetivo_calcio_porciones',                 icono:'🥛', nombre:'Lácteos / calcio' },
+  { key:'proteinas',               campo:'objetivo_proteinas_porciones',              icono:'🍗', nombre:'Proteínas' },
+  { key:'frutos_secos_legumbres',  campo:'objetivo_frutos_secos_legumbres_porciones', icono:'🥜', nombre:'Frutos secos y legumbres' },
 ];
+
+// Valores de referencia (porciones/día) según el patrón alimentario elegido.
+const REFERENCIAS_ALIMENTACION = {
+  DASH:         { granos:6, verduras:4, frutas:4, calcio:2.5, proteinas:3, frutos_secos_legumbres:1 },
+  MEDITERRANEO: { granos:4, verduras:5, frutas:3, calcio:2,   proteinas:3, frutos_secos_legumbres:2 },
+};
+
+function obtenerDefRef(tipo, key){
+  const tabla = REFERENCIAS_ALIMENTACION[tipo] || REFERENCIAS_ALIMENTACION.DASH;
+  return tabla[key];
+}
 
 function obtenerObjetivoDashProf(paciente, cat){
   const v = paciente ? paciente[cat.campo] : null;
-  return (v != null && v !== '') ? v : cat.defRef;
+  const tipo = (paciente && paciente.tipo_alimentacion) || 'DASH';
+  return (v != null && v !== '') ? v : obtenerDefRef(tipo, cat.key);
+}
+
+// ═══ CÁLCULO AUTOMÁTICO: PROTEÍNAS POR PESO ═══
+const FACTOR_PROTEINA_GKG = { hipo:0.8, normo:1.0, hiper:1.5 };
+const GRAMOS_PROTEINA_POR_PORCION = 7; // ≈ g de proteína por porción de alimento proteico
+
+// ═══ CÁLCULO AUTOMÁTICO: CALCIO (OMS, simplificado) ═══
+const MG_CALCIO_POR_PORCION = 300; // ≈ mg de calcio por porción láctea
+
+function calcularCalcioMgOMS(paciente){
+  if(!paciente || paciente.edad == null) return null;
+  const edad = paciente.edad;
+  const sexo = paciente.sexo;
+  const embarazo = !!paciente.embarazo;
+  const menopausia = !!paciente.menopausia;
+
+  if(edad < 19) return 1300;                                   // adolescentes (con o sin embarazo)
+  if(embarazo) return 1000;                                    // adultas embarazadas
+  if(menopausia || (sexo === 'F' && edad >= 51)) return 1200;   // menopausia / mujeres ≥51
+  return 1000;                                                 // adulto general
 }
 
 const vistaLogin = document.getElementById('vista-login');
@@ -592,28 +671,48 @@ async function abrirFicha(dni){
   renderizarStats(registros || []);
   renderizarGrafico(registros || []);
   renderizarTabla(registros || []);
+  pesoActualPaciente = obtenerUltimoPeso(registros || []);
   renderObjetivosAlimentacion(pacienteSeleccionado);
   cargarHabitosRecientes(dni);
 }
 
-// ═══ OBJETIVOS DE ALIMENTACIÓN (DASH) ═══
-function renderObjetivosAlimentacion(paciente){
-  const cont = document.getElementById('objetivosAlimentacion');
-  document.getElementById('objAliGuardadoMsg').style.display = 'none';
+function obtenerUltimoPeso(registros){
+  const conPeso = registros.filter(r => r.peso_kg != null);
+  return conPeso.length ? conPeso[conPeso.length - 1].peso_kg : null;
+}
 
+// ═══ OBJETIVOS DE ALIMENTACIÓN (DASH / Mediterránea) ═══
+function renderObjetivosAlimentacion(paciente){
+  document.getElementById('objAliGuardadoMsg').style.display = 'none';
+  document.getElementById('ayudaProteina').textContent = '';
+  document.getElementById('ayudaCalcio').textContent = '';
+
+  const tipo = (paciente && paciente.tipo_alimentacion) || 'DASH';
+  document.getElementById('selTipoAlimentacion').value = tipo;
+  document.getElementById('selNivelProteico').value = (paciente && paciente.nivel_proteico) || 'normo';
+  construirFilasAlimentacion(paciente, tipo);
+}
+
+function construirFilasAlimentacion(paciente, tipo){
+  const cont = document.getElementById('objetivosAlimentacion');
   cont.innerHTML = CATALOGO_DASH_OBJ.map(cat=>{
     const valorActual = paciente ? paciente[cat.campo] : null;
+    const defRef = obtenerDefRef(tipo, cat.key);
     return `<div class="obj-ali-fila">
       <span class="obj-ali-icono">${cat.icono}</span>
       <span class="obj-ali-nombre">${cat.nombre}</span>
       <div class="obj-ali-input-wrap">
         <input type="number" min="0" step="0.5" id="objali_${cat.key}"
-          value="${valorActual != null ? valorActual : ''}" placeholder="${cat.defRef}">
+          value="${valorActual != null ? valorActual : ''}" placeholder="${defRef}">
         <span>porciones/día</span>
       </div>
     </div>`;
   }).join('');
 }
+
+document.getElementById('selTipoAlimentacion').addEventListener('change', e=>{
+  construirFilasAlimentacion(pacienteSeleccionado, e.target.value);
+});
 
 document.getElementById('btnGuardarObjetivos').addEventListener('click', guardarObjetivosAlimentacion);
 
@@ -623,7 +722,10 @@ async function guardarObjetivosAlimentacion(){
   btn.disabled = true;
   btn.textContent = 'Guardando...';
 
-  const payload = {};
+  const payload = {
+    tipo_alimentacion: document.getElementById('selTipoAlimentacion').value,
+    nivel_proteico: document.getElementById('selNivelProteico').value,
+  };
   CATALOGO_DASH_OBJ.forEach(cat=>{
     const el = document.getElementById('objali_' + cat.key);
     if(!el) return;
@@ -650,6 +752,50 @@ async function guardarObjetivosAlimentacion(){
   const msg = document.getElementById('objAliGuardadoMsg');
   msg.style.display = 'block';
   setTimeout(()=>{ msg.style.display = 'none'; }, 4000);
+}
+
+// ═══ SUGERENCIA AUTOMÁTICA: PROTEÍNAS SEGÚN PESO ═══
+document.getElementById('btnSugerirProteina').addEventListener('click', sugerirProteina);
+
+function sugerirProteina(){
+  const ayuda = document.getElementById('ayudaProteina');
+  if(!pesoActualPaciente){
+    ayuda.style.color = 'var(--coral)';
+    ayuda.textContent = 'Este/a paciente todavía no cargó ningún peso en la app. Necesitás al menos un registro para calcular.';
+    return;
+  }
+
+  const nivel = document.getElementById('selNivelProteico').value;
+  const factor = FACTOR_PROTEINA_GKG[nivel] || FACTOR_PROTEINA_GKG.normo;
+  const gramosDia = pesoActualPaciente * factor;
+  const porciones = Math.round((gramosDia / GRAMOS_PROTEINA_POR_PORCION) * 2) / 2;
+
+  const inputProteinas = document.getElementById('objali_proteinas');
+  if(inputProteinas) inputProteinas.value = porciones;
+
+  ayuda.style.color = 'var(--texto-suave)';
+  ayuda.textContent = `≈ ${gramosDia.toFixed(0)} g/día (${factor} g/kg × ${pesoActualPaciente} kg) → ${porciones} porciones sugeridas. Podés ajustarlo antes de guardar.`;
+}
+
+// ═══ SUGERENCIA AUTOMÁTICA: CALCIO SEGÚN EDAD / OMS ═══
+document.getElementById('btnSugerirCalcio').addEventListener('click', sugerirCalcio);
+
+function sugerirCalcio(){
+  const ayuda = document.getElementById('ayudaCalcio');
+  const mg = calcularCalcioMgOMS(pacienteSeleccionado);
+
+  if(mg == null){
+    ayuda.style.color = 'var(--coral)';
+    ayuda.textContent = 'El/la paciente todavía no cargó su edad y sexo desde la app. Pedile que complete "Mis datos personales" primero.';
+    return;
+  }
+
+  const porciones = Math.round((mg / MG_CALCIO_POR_PORCION) * 2) / 2;
+  const inputCalcio = document.getElementById('objali_calcio');
+  if(inputCalcio) inputCalcio.value = porciones;
+
+  ayuda.style.color = 'var(--texto-suave)';
+  ayuda.textContent = `≈ ${mg} mg/día (referencia OMS) → ${porciones} porciones sugeridas. Podés ajustarlo antes de guardar.`;
 }
 
 // ═══ HABILITAR / RESTABLECER ACCESO ═══
