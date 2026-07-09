@@ -548,6 +548,36 @@
     transition:width .3s ease;
   }
   .resumen-semana-nota{font-size:0.78rem; color:var(--texto-suave); margin-top:4px;}
+
+  .dash-dia-detalle-titulo{
+    font-size:0.78rem;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--texto-suave);
+    margin:16px 0 8px;
+    padding-top:12px;
+    border-top:1px solid var(--gris);
+  }
+  .dash-dia-card{
+    background:#f8fbfe;
+    border:1px solid var(--gris);
+    border-radius:10px;
+    padding:10px 12px;
+    margin-bottom:8px;
+  }
+  .dash-dia-fecha{font-size:0.78rem; font-weight:700; color:var(--azul); margin-bottom:6px; text-transform:capitalize;}
+  .dash-dia-chips{display:flex; flex-wrap:wrap; gap:5px;}
+  .dash-dia-chip{
+    font-size:0.72rem;
+    font-weight:600;
+    padding:3px 8px;
+    border-radius:20px;
+    background:#eef1f5;
+    color:var(--texto-suave);
+  }
+  .dash-dia-chip.cumplido{background:#e3f6ee; color:#1F9D6D;}
+  .dash-dia-chip.no-cumplido{background:#fdeceb; color:var(--coral);}
   .resumen-dias-animo{
     display:flex;
     gap:6px;
@@ -1217,9 +1247,22 @@ const CATALOGO_DASH = [
 let estadoDash = {};
 const dashPanelesAbiertos = new Set();
 
+// Mapea cada grupo DASH al campo de appdipo_pacientes donde el/la médico/a
+// carga el objetivo específico para ese paciente. Si no está cargado, se usa
+// el valor de referencia general de CATALOGO_DASH (objetivoDefault).
+const MAPEO_OBJETIVO_DASH = {
+  granos:                 'objetivo_granos_porciones',
+  verduras:               'objetivo_verduras_porciones',
+  frutas:                 'objetivo_frutas_porciones',
+  calcio:                 'objetivo_calcio_porciones',
+  proteinas:              'objetivo_proteinas_porciones',
+  frutos_secos_legumbres: 'objetivo_frutos_secos_legumbres_porciones',
+};
+
 function obtenerObjetivoDash(key){
-  if(key === 'proteinas') return pacienteActual?.objetivo_proteinas_porciones ?? null;
-  if(key === 'calcio') return pacienteActual?.objetivo_calcio_porciones ?? null;
+  const campo = MAPEO_OBJETIVO_DASH[key];
+  const valorMedico = campo ? pacienteActual?.[campo] : null;
+  if(valorMedico != null && valorMedico !== '') return valorMedico;
   const item = CATALOGO_DASH.find(i => i.key === key);
   return item ? item.objetivoDefault : null;
 }
@@ -1304,6 +1347,8 @@ async function cargarPanelHabitos(){
     .select(`
       objetivos_actividad,
       objetivo_proteinas_porciones, objetivo_calcio_porciones,
+      objetivo_granos_porciones, objetivo_verduras_porciones,
+      objetivo_frutas_porciones, objetivo_frutos_secos_legumbres_porciones,
       objetivo_sueno_horas, objetivo_pasos_diarios, objetivo_pantalla_horas_max,
       objetivo_pausas_activas, objetivo_pausas_activas_veces
     `)
@@ -1466,10 +1511,28 @@ function renderizarResumenAlimentacion(habitos){
   const huevoTotal = conDatos.reduce((acc,h) => acc + (h.alimentacion_dash_json.huevo || 0), 0);
   const promedioGeneral = sumaPromedios / categoriasConObjetivo.length;
 
+  // Detalle día por día: lo que comiste vs. el objetivo de cada grupo, ese día puntual.
+  const detalleDiasHtml = conDatos.slice().reverse().map(h=>{
+    const fecha = new Date(h.fecha+'T12:00:00').toLocaleDateString('es-AR', { weekday:'short', day:'2-digit', month:'2-digit' });
+    const chips = categoriasConObjetivo.map(cat=>{
+      const objetivo = obtenerObjetivoDash(cat.key);
+      if(objetivo == null) return '';
+      const consumido = h.alimentacion_dash_json[cat.key] || 0;
+      const cumplido = consumido >= objetivo;
+      return `<span class="dash-dia-chip ${cumplido ? 'cumplido' : 'no-cumplido'}">${cat.icono} ${consumido}/${objetivo}</span>`;
+    }).join('');
+    return `<div class="dash-dia-card">
+      <div class="dash-dia-fecha">${fecha}</div>
+      <div class="dash-dia-chips">${chips}</div>
+    </div>`;
+  }).join('');
+
   cont.innerHTML = `<h3>Alimentación</h3>
     ${filaResumen('Promedio general de la semana', promedioGeneral, null)}
     ${filasHtml}
-    <div class="resumen-semana-nota" style="margin-top:6px;">🥚 Huevo: ${huevoTotal} porciones cargadas esta semana</div>`;
+    <div class="resumen-semana-nota" style="margin-top:6px;">🥚 Huevo: ${huevoTotal} porciones cargadas esta semana</div>
+    <div class="dash-dia-detalle-titulo">Detalle por día</div>
+    ${detalleDiasHtml}`;
 }
 
 function renderizarResumenActividad(habitos){
