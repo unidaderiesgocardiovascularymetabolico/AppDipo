@@ -581,7 +581,11 @@
 const SUPABASE_URL = 'https://qdjzetylyojfjdottjrk.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_qe6L1Uc7mRwsen7lzZlllw_DzOXonwL';
 const { createClient } = supabase;
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// persistSession:false => cada vez que se abre la app pide login de nuevo,
+// así nunca queda "pegada" la sesión de un paciente anterior en este dispositivo.
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false }
+});
 
 // ═══ ESTADO ═══
 let usuarioActual = null;   // objeto de auth
@@ -1051,18 +1055,9 @@ async function cargarHistorial(){
   }).join('');
 }
 
-// ═══ SESIÓN PERSISTENTE ═══
-(async ()=>{
-  try{
-    const { data } = await sb.auth.getSession();
-    if(data.session){
-      usuarioActual = data.session.user;
-      await cargarPaciente();
-    }
-  }catch(e){
-    console.error('No se pudo verificar la sesión guardada.', e);
-  }
-})();
+// Nota: la sesión ya no se persiste entre aperturas de la app
+// (ver persistSession:false más arriba), así que cada apertura
+// siempre arranca mostrando la pantalla de login.
 </script>
 </body>
 </html>
