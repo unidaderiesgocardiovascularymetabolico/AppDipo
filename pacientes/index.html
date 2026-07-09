@@ -333,23 +333,36 @@
   }
   .banner-mensaje.show{display:block;}
 
-  /* ---------- ANIMO ---------- */
+  /* ---------- ANIMO (Escala de Caritas, Andrews & Withey) ---------- */
   .animo-fila{
     display:flex;
     justify-content:space-between;
-    gap:6px;
+    gap:4px;
   }
   .animo-btn{
     flex:1;
     background:none;
     border:1.5px solid var(--gris);
     border-radius:10px;
-    padding:10px 4px;
-    font-size:1.6rem;
+    padding:8px 2px;
     cursor:pointer;
     transition:.15s;
+    color:var(--texto-suave);
+    display:flex;
+    align-items:center;
+    justify-content:center;
   }
-  .animo-btn.selected{border-color:var(--teal); background:#EAF7F6; transform:scale(1.05);}
+  .animo-btn svg{width:100%; height:auto; max-width:30px; display:block;}
+  .animo-btn.selected{border-color:var(--teal); background:#EAF7F6; color:var(--teal); transform:scale(1.05);}
+  .animo-leyenda{
+    text-align:center;
+    font-size:0.85rem;
+    font-weight:600;
+    color:var(--texto-suave);
+    margin-top:10px;
+    min-height:1.2em;
+  }
+  .animo-leyenda.tiene-seleccion{color:var(--teal);}
 
   /* ---------- AYUDA ---------- */
   .ayuda-paso{
@@ -413,14 +426,14 @@
     </header>
 
     <main>
-      <div class="banner-mensaje" id="bannerMensaje"></div>
-
       <div class="tabs">
-        <div class="tab active" data-tab="registro">Nuevo registro</div>
+        <div class="tab active" data-tab="registro">Hoy</div>
         <div class="tab" data-tab="habitos">Hábitos de hoy</div>
         <div class="tab" data-tab="historial">Mi evolución</div>
         <div class="tab" data-tab="ayuda">Ayuda</div>
       </div>
+
+      <div class="banner-mensaje" id="bannerMensaje"></div>
 
       <!-- ---- REGISTRO ---- -->
       <div class="panel active" id="panel-registro">
@@ -489,13 +502,8 @@
 
         <div class="card">
           <h3>¿Cómo te sentís hoy?</h3>
-          <div class="animo-fila" id="animoFila">
-            <button type="button" class="animo-btn" data-animo="1">😞</button>
-            <button type="button" class="animo-btn" data-animo="2">😕</button>
-            <button type="button" class="animo-btn" data-animo="3">😐</button>
-            <button type="button" class="animo-btn" data-animo="4">🙂</button>
-            <button type="button" class="animo-btn" data-animo="5">😄</button>
-          </div>
+          <div class="animo-fila" id="animoFila"></div>
+          <div class="animo-leyenda" id="animoLeyenda">Tocá la carita que más se parece a como te sentís</div>
         </div>
 
         <button class="btn btn-primary" id="btnGuardarRegistro">Guardar registro</button>
@@ -545,7 +553,7 @@
           <h3>Cómo usar AppDipo pacientes</h3>
           <div class="ayuda-paso">
             <div class="ayuda-num">1</div>
-            <div class="ayuda-txt">En <b>Nuevo registro</b> cargá tu peso y medidas cuando tu médico/a te lo indique. La foto y la nota son opcionales.</div>
+            <div class="ayuda-txt">En <b>Hoy</b> cargá tu peso y medidas cuando tu médico/a te lo indique. La foto y la nota son opcionales.</div>
           </div>
           <div class="ayuda-paso">
             <div class="ayuda-num">2</div>
@@ -593,14 +601,57 @@ function mostrarToast(msg, ok=true){
   setTimeout(()=> toast.classList.remove('show'), 2600);
 }
 
-// ═══ ANIMO ═══
+// ═══ ANIMO — Escala de Caritas (Andrews & Withey, 1976) ═══
+// 7 niveles, de 1 (Terrible) a 7 (Encantado/a). Caritas dibujadas en SVG (sin usar emojis
+// ni material con derechos), variando solo la curva de la boca y las cejas.
+const ESCALA_CARITAS = [
+  { valor:1, etiqueta:'Terrible',                    curva:16 },
+  { valor:2, etiqueta:'Infeliz',                     curva:10 },
+  { valor:3, etiqueta:'Insatisfecho/a en general',   curva:5  },
+  { valor:4, etiqueta:'Mixto (ni conforme ni no)',   curva:0  },
+  { valor:5, etiqueta:'Contento/a en general',       curva:-5 },
+  { valor:6, etiqueta:'Muy contento/a',               curva:-10 },
+  { valor:7, etiqueta:'Encantado/a',                  curva:-16 }
+];
+
+function svgCarita(curva){
+  const yControl = 24 + curva;
+  const ceja = curva < -4 ? '' : `
+    <path d="M9 12 Q13 ${curva>4?15:9} 17 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M23 12 Q27 ${curva>4?15:9} 31 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+  return `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <circle cx="13" cy="17" r="2.2" fill="currentColor"/>
+    <circle cx="27" cy="17" r="2.2" fill="currentColor"/>
+    ${ceja}
+    <path d="M10 24 Q20 ${yControl} 30 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  </svg>`;
+}
+
+const animoFilaEl = document.getElementById('animoFila');
+const animoLeyendaEl = document.getElementById('animoLeyenda');
+animoFilaEl.innerHTML = ESCALA_CARITAS.map(n => `
+  <button type="button" class="animo-btn" data-animo="${n.valor}" data-etiqueta="${n.etiqueta}" aria-label="${n.etiqueta}">
+    ${svgCarita(n.curva)}
+  </button>
+`).join('');
+
 document.querySelectorAll('.animo-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.animo-btn').forEach(b=>b.classList.remove('selected'));
     btn.classList.add('selected');
     animoSeleccionado = parseInt(btn.dataset.animo, 10);
+    animoLeyendaEl.textContent = btn.dataset.etiqueta;
+    animoLeyendaEl.classList.add('tiene-seleccion');
   });
 });
+
+function resetAnimo(){
+  animoSeleccionado = null;
+  document.querySelectorAll('.animo-btn').forEach(b=>b.classList.remove('selected'));
+  animoLeyendaEl.textContent = 'Tocá la carita que más se parece a como te sentís';
+  animoLeyendaEl.classList.remove('tiene-seleccion');
+}
 
 // ═══ MENSAJE DEL PROFESIONAL ═══
 async function cargarMensaje(){
@@ -797,8 +848,7 @@ async function guardarRegistro(){
   previewFoto.style.display = 'none';
   fotoZone.classList.remove('tiene-foto');
   fotoZone.innerHTML = '📷 Tocá para agregar una foto<br><span class="campo-opcional-label">Solo si querés, de la manera que prefieras</span>';
-  animoSeleccionado = null;
-  document.querySelectorAll('.animo-btn').forEach(b=>b.classList.remove('selected'));
+  resetAnimo();
 }
 
 // ═══ HABITOS DINÁMICOS (objetivos cargados por el profesional) ═══
