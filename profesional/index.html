@@ -292,6 +292,59 @@
     margin-top:10px;
     font-weight:600;
   }
+
+  /* ---------- OBJETIVOS NUTRICIONALES Y DE BIENESTAR ---------- */
+  .obj-ayuda{font-size:0.82rem; color:var(--texto-suave); margin-top:-8px; margin-bottom:18px;}
+  .obj-nutri-grupo{
+    padding:14px 0;
+    border-bottom:1px solid #F0F0F0;
+  }
+  .obj-nutri-grupo:last-of-type{border-bottom:none; padding-bottom:0;}
+  .obj-nutri-titulo{font-weight:600; font-size:0.92rem; margin-bottom:10px;}
+  .obj-nutri-radios, .obj-nutri-modo{
+    display:flex;
+    flex-wrap:wrap;
+    gap:14px;
+    margin-bottom:10px;
+    font-size:0.85rem;
+    color:var(--texto-suave);
+  }
+  .obj-nutri-radios label, .obj-nutri-modo label, .obj-checkbox{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    cursor:pointer;
+  }
+  .obj-nutri-radios input, .obj-nutri-modo input, .obj-checkbox input{
+    accent-color:var(--azul);
+    width:15px; height:15px;
+  }
+  .obj-nutri-valor{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    max-width:260px;
+  }
+  .obj-nutri-valor input{
+    width:100px;
+    padding:9px 10px;
+    border:1.5px solid var(--gris);
+    border-radius:8px;
+    font-size:0.95rem;
+    font-family:inherit;
+  }
+  .obj-nutri-valor input:focus{outline:none; border-color:var(--azul);}
+  .obj-nutri-valor input:disabled{background:#F4F4F4; color:var(--texto-suave);}
+  .obj-nutri-valor span{font-size:0.82rem; color:var(--texto-suave);}
+  .obj-nutri-sugerencia{
+    font-size:0.78rem;
+    color:var(--teal);
+    margin-top:8px;
+    font-style:italic;
+  }
+  .obj-checkbox{margin-bottom:10px; font-size:0.88rem; color:var(--texto);}
+  #wrapPausasVeces{margin-top:2px;}
+  #wrapPausasVeces.oculto{display:none;}
 </style>
 </head>
 <body>
@@ -380,6 +433,7 @@
           <tbody id="tablaEvolucion"></tbody>
         </table>
       </div>
+      <p style="font-size:0.75rem; color:var(--texto-suave); margin:10px 2px 0;">* Ánimo cargado con la escala anterior de 5 niveles (antes del 09/07/2026). No es directamente comparable con la escala nueva de 7 niveles.</p>
     </div>
 
     <div class="card">
@@ -401,6 +455,78 @@
 
       <button class="btn btn-primary" id="btnGuardarObjetivos" style="margin-top:18px; width:auto; padding:11px 22px;">Guardar objetivos</button>
       <div class="obj-guardado" id="objGuardadoMsg">✓ Objetivos guardados. Ya están disponibles para el paciente.</div>
+    </div>
+
+    <div class="card">
+      <h3>Objetivos nutricionales y de bienestar</h3>
+      <p class="obj-ayuda">Podés dejar que la app sugiera los valores según las recomendaciones de la OMS y la dieta DASH (usando el último peso cargado), o cargar tus propios valores en modo manual.</p>
+
+      <div class="obj-nutri-grupo">
+        <div class="obj-nutri-titulo">Proteínas</div>
+        <div class="obj-nutri-radios" id="radiosProteinasNivel">
+          <label><input type="radio" name="proteinasNivel" value="hipo"> Hipoproteica</label>
+          <label><input type="radio" name="proteinasNivel" value="normo"> Normoproteica</label>
+          <label><input type="radio" name="proteinasNivel" value="hiper"> Hiperproteica</label>
+        </div>
+        <div class="obj-nutri-modo" id="modoProteinas">
+          <label><input type="radio" name="proteinasModo" value="automatico"> Automático (sugerido)</label>
+          <label><input type="radio" name="proteinasModo" value="manual"> Manual</label>
+        </div>
+        <div class="obj-nutri-valor">
+          <input type="number" step="0.5" min="0" id="inProteinasPorciones" placeholder="0">
+          <span>porciones / día</span>
+        </div>
+        <div class="obj-nutri-sugerencia" id="sugerenciaProteinas"></div>
+      </div>
+
+      <div class="obj-nutri-grupo">
+        <div class="obj-nutri-titulo">Calcio</div>
+        <div class="obj-nutri-modo" id="modoCalcio">
+          <label><input type="radio" name="calcioModo" value="automatico"> Automático (sugerido)</label>
+          <label><input type="radio" name="calcioModo" value="manual"> Manual</label>
+        </div>
+        <div class="obj-nutri-valor">
+          <input type="number" step="0.5" min="0" id="inCalcioPorciones" placeholder="0">
+          <span>porciones / día</span>
+        </div>
+        <div class="obj-nutri-sugerencia" id="sugerenciaCalcio"></div>
+      </div>
+
+      <div class="obj-nutri-grupo">
+        <div class="obj-nutri-titulo">Sueño</div>
+        <div class="obj-nutri-valor">
+          <input type="number" step="0.5" min="0" id="inSuenoHoras" placeholder="0">
+          <span>horas / noche</span>
+        </div>
+      </div>
+
+      <div class="obj-nutri-grupo">
+        <div class="obj-nutri-titulo">Pasos diarios</div>
+        <div class="obj-nutri-valor">
+          <input type="number" step="500" min="0" id="inPasosDiarios" placeholder="0">
+          <span>pasos / día</span>
+        </div>
+      </div>
+
+      <div class="obj-nutri-grupo">
+        <div class="obj-nutri-titulo">Pausas activas</div>
+        <label class="obj-checkbox"><input type="checkbox" id="chkPausasActivas"> Corresponde para este paciente</label>
+        <div class="obj-nutri-valor" id="wrapPausasVeces">
+          <input type="number" step="1" min="0" id="inPausasVeces" placeholder="0">
+          <span>veces / día</span>
+        </div>
+      </div>
+
+      <div class="obj-nutri-grupo">
+        <div class="obj-nutri-titulo">Uso de pantalla (celular y otros)</div>
+        <div class="obj-nutri-valor">
+          <input type="number" step="0.5" min="0" id="inPantallaHoras" placeholder="0">
+          <span>horas máx / día</span>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="btnGuardarNutricion" style="margin-top:18px; width:auto; padding:11px 22px;">Guardar objetivos nutricionales y de bienestar</button>
+      <div class="obj-guardado" id="nutriGuardadoMsg">✓ Objetivos guardados. Ya están disponibles para el paciente.</div>
     </div>
   </main>
 </div>
@@ -429,6 +555,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let usuarioActual = null;
 let pacientesCache = [];
 let pacienteSeleccionado = null;
+let ultimoPesoPaciente = null;
 
 // ═══ CATÁLOGO DE OBJETIVOS PREDISEÑADOS ═══
 const CATALOGO_ACTIVIDAD = [
@@ -460,6 +587,20 @@ const ESCALA_CARITAS = {
   6:{ etiqueta:'Muy contento/a',            color:'#E4F5F0', texto:'#1F9D6D' },
   7:{ etiqueta:'Encantado/a',               color:'#E4F5F0', texto:'#1F9D6D' }
 };
+
+// Escala anterior (5 emojis simples), usada en registros cargados ANTES del
+// cambio a la Escala de Caritas de 7 niveles. Se conserva solo para no
+// reinterpretar mal el historial viejo: los valores 1-5 no significan lo
+// mismo en una escala que en la otra.
+const ESCALA_CARITAS_VIEJA = {
+  1:{ etiqueta:'Muy mal',   color:'#FCEBEA', texto:'#C0392B' },
+  2:{ etiqueta:'Mal',       color:'#FDF3E3', texto:'#B8790A' },
+  3:{ etiqueta:'Regular',   color:'#F0F0F0', texto:'#6B7280' },
+  4:{ etiqueta:'Bien',      color:'#EAF7F6', texto:'#2C8C8E' },
+  5:{ etiqueta:'Muy bien',  color:'#E4F5F0', texto:'#1F9D6D' }
+};
+// Fecha desde la que rige la nueva escala de 7 niveles (fecha de este cambio).
+const FECHA_CORTE_ESCALA = '2026-07-09';
 
 const vistaLogin = document.getElementById('vista-login');
 const vistaApp = document.getElementById('vista-app');
@@ -636,6 +777,10 @@ async function abrirFicha(dni){
   renderizarTabla(registros || []);
   cargarHabitosRecientes(dni);
   cargarObjetivosPaciente(dni);
+
+  const conPeso = (registros || []).filter(r => r.peso_kg != null);
+  ultimoPesoPaciente = conPeso.length ? conPeso[conPeso.length - 1].peso_kg : null;
+  cargarObjetivosNutricion(dni);
 }
 
 // ═══ OBJETIVOS DEL PACIENTE ═══
@@ -695,6 +840,167 @@ async function guardarObjetivos(){
   }
 
   const msg = document.getElementById('objGuardadoMsg');
+  msg.style.display = 'block';
+  setTimeout(()=> msg.style.display = 'none', 3000);
+}
+
+// ═══ OBJETIVOS NUTRICIONALES Y DE BIENESTAR (proteínas, calcio, sueño, pasos, pausas activas, pantalla) ═══
+// Sugerencias basadas en recomendaciones generales de la OMS y de la dieta DASH.
+// g de proteína por kg de peso corporal por día, según nivel:
+const FACTOR_PROTEINA_G_KG = { hipo: 0.8, normo: 1.1, hiper: 1.6 };
+const GRAMOS_POR_PORCION_PROTEINA = 20; // ~20 g de proteína por porción (ej: 100 g de carne/pescado/pollo)
+const PORCIONES_CALCIO_SUGERIDAS = 2.5; // OMS/DASH: 2 a 3 porciones de lácteos/calcio por día
+
+function calcularSugerenciaProteinas(nivel, pesoKg){
+  if(!nivel) return null;
+  const factor = FACTOR_PROTEINA_G_KG[nivel];
+  if(!pesoKg){
+    // sin peso cargado, usamos un valor de referencia general por nivel
+    return { hipo: 2, normo: 3, hiper: 5 }[nivel];
+  }
+  const gramosDia = factor * pesoKg;
+  return Math.round((gramosDia / GRAMOS_POR_PORCION_PROTEINA) * 2) / 2; // redondeo a 0.5
+}
+
+function actualizarSugerenciaProteinas(){
+  const nivel = document.querySelector('input[name="proteinasNivel"]:checked')?.value;
+  const modo = document.querySelector('input[name="proteinasModo"]:checked')?.value || 'automatico';
+  const input = document.getElementById('inProteinasPorciones');
+  const sugerenciaEl = document.getElementById('sugerenciaProteinas');
+
+  if(!nivel){
+    sugerenciaEl.textContent = 'Elegí un nivel de proteína para ver la sugerencia.';
+    input.disabled = (modo === 'automatico');
+    return;
+  }
+
+  const sugerido = calcularSugerenciaProteinas(nivel, ultimoPesoPaciente);
+  const base = ultimoPesoPaciente
+    ? `según el último peso cargado (${ultimoPesoPaciente} kg) a ${FACTOR_PROTEINA_G_KG[nivel]} g/kg/día`
+    : `valor de referencia general (todavía no hay un peso cargado para este paciente)`;
+  sugerenciaEl.textContent = `Sugerido: ${sugerido} porciones/día, ${base}.`;
+
+  if(modo === 'automatico'){
+    input.value = sugerido;
+    input.disabled = true;
+  } else {
+    input.disabled = false;
+  }
+}
+
+function actualizarSugerenciaCalcio(){
+  const modo = document.querySelector('input[name="calcioModo"]:checked')?.value || 'automatico';
+  const input = document.getElementById('inCalcioPorciones');
+  const sugerenciaEl = document.getElementById('sugerenciaCalcio');
+  sugerenciaEl.textContent = `Sugerido: ${PORCIONES_CALCIO_SUGERIDAS} porciones/día de lácteos u otras fuentes de calcio (recomendación general OMS/DASH).`;
+
+  if(modo === 'automatico'){
+    input.value = PORCIONES_CALCIO_SUGERIDAS;
+    input.disabled = true;
+  } else {
+    input.disabled = false;
+  }
+}
+
+document.querySelectorAll('input[name="proteinasNivel"], input[name="proteinasModo"]').forEach(el=>{
+  el.addEventListener('change', actualizarSugerenciaProteinas);
+});
+document.querySelectorAll('input[name="calcioModo"]').forEach(el=>{
+  el.addEventListener('change', actualizarSugerenciaCalcio);
+});
+document.getElementById('chkPausasActivas').addEventListener('change', e=>{
+  document.getElementById('wrapPausasVeces').classList.toggle('oculto', !e.target.checked);
+});
+
+async function cargarObjetivosNutricion(dni){
+  document.getElementById('nutriGuardadoMsg').style.display = 'none';
+
+  const { data, error } = await sb
+    .from('appdipo_pacientes')
+    .select(`
+      objetivo_proteinas_nivel, objetivo_proteinas_modo, objetivo_proteinas_porciones,
+      objetivo_calcio_modo, objetivo_calcio_porciones,
+      objetivo_sueno_horas, objetivo_pasos_diarios,
+      objetivo_pausas_activas, objetivo_pausas_activas_veces,
+      objetivo_pantalla_horas_max
+    `)
+    .eq('dni', dni)
+    .maybeSingle();
+
+  if(error){ console.error(error); }
+  const d = data || {};
+
+  // Proteínas
+  document.querySelectorAll('input[name="proteinasNivel"]').forEach(r=> r.checked = (r.value === d.objetivo_proteinas_nivel));
+  const modoProt = d.objetivo_proteinas_modo || 'automatico';
+  document.querySelectorAll('input[name="proteinasModo"]').forEach(r=> r.checked = (r.value === modoProt));
+  document.getElementById('inProteinasPorciones').value = d.objetivo_proteinas_porciones ?? '';
+  actualizarSugerenciaProteinas();
+  if(modoProt === 'manual' && d.objetivo_proteinas_porciones != null){
+    document.getElementById('inProteinasPorciones').value = d.objetivo_proteinas_porciones;
+  }
+
+  // Calcio
+  const modoCal = d.objetivo_calcio_modo || 'automatico';
+  document.querySelectorAll('input[name="calcioModo"]').forEach(r=> r.checked = (r.value === modoCal));
+  actualizarSugerenciaCalcio();
+  if(modoCal === 'manual' && d.objetivo_calcio_porciones != null){
+    document.getElementById('inCalcioPorciones').value = d.objetivo_calcio_porciones;
+  }
+
+  // Sueño, pasos, pantalla
+  document.getElementById('inSuenoHoras').value = d.objetivo_sueno_horas ?? '';
+  document.getElementById('inPasosDiarios').value = d.objetivo_pasos_diarios ?? '';
+  document.getElementById('inPantallaHoras').value = d.objetivo_pantalla_horas_max ?? '';
+
+  // Pausas activas
+  document.getElementById('chkPausasActivas').checked = !!d.objetivo_pausas_activas;
+  document.getElementById('inPausasVeces').value = d.objetivo_pausas_activas_veces ?? '';
+  document.getElementById('wrapPausasVeces').classList.toggle('oculto', !d.objetivo_pausas_activas);
+}
+
+document.getElementById('btnGuardarNutricion').addEventListener('click', guardarObjetivosNutricion);
+
+async function guardarObjetivosNutricion(){
+  if(!pacienteSeleccionado) return;
+
+  const btn = document.getElementById('btnGuardarNutricion');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  const payload = {
+    objetivo_proteinas_nivel: document.querySelector('input[name="proteinasNivel"]:checked')?.value || null,
+    objetivo_proteinas_modo: document.querySelector('input[name="proteinasModo"]:checked')?.value || 'automatico',
+    objetivo_proteinas_porciones: parseFloat(document.getElementById('inProteinasPorciones').value) || null,
+
+    objetivo_calcio_modo: document.querySelector('input[name="calcioModo"]:checked')?.value || 'automatico',
+    objetivo_calcio_porciones: parseFloat(document.getElementById('inCalcioPorciones').value) || null,
+
+    objetivo_sueno_horas: parseFloat(document.getElementById('inSuenoHoras').value) || null,
+    objetivo_pasos_diarios: parseInt(document.getElementById('inPasosDiarios').value, 10) || null,
+    objetivo_pantalla_horas_max: parseFloat(document.getElementById('inPantallaHoras').value) || null,
+
+    objetivo_pausas_activas: document.getElementById('chkPausasActivas').checked,
+    objetivo_pausas_activas_veces: document.getElementById('chkPausasActivas').checked
+      ? (parseInt(document.getElementById('inPausasVeces').value, 10) || null)
+      : null,
+  };
+
+  const { error } = await sb
+    .from('appdipo_pacientes')
+    .update(payload)
+    .eq('dni', pacienteSeleccionado.dni);
+
+  btn.disabled = false;
+  btn.textContent = 'Guardar objetivos nutricionales y de bienestar';
+
+  if(error){
+    console.error(error);
+    alert('No se pudieron guardar los objetivos nutricionales. Probá de nuevo.');
+    return;
+  }
+
+  const msg = document.getElementById('nutriGuardadoMsg');
   msg.style.display = 'block';
   setTimeout(()=> msg.style.display = 'none', 3000);
 }
@@ -796,9 +1102,14 @@ function renderizarTabla(registros){
     const fecha = new Date(r.fecha).toLocaleDateString('es-AR', { day:'2-digit', month:'short', year:'numeric' });
 
     let animoHtml = '—';
-    if(r.animo != null && ESCALA_CARITAS[r.animo]){
-      const a = ESCALA_CARITAS[r.animo];
-      animoHtml = `<span class="badge-animo" style="background:${a.color}; color:${a.texto};">${a.etiqueta}</span>`;
+    if(r.animo != null){
+      const esRegistroViejo = r.fecha < FECHA_CORTE_ESCALA;
+      const tabla = esRegistroViejo ? ESCALA_CARITAS_VIEJA : ESCALA_CARITAS;
+      const a = tabla[r.animo];
+      if(a){
+        const titulo = esRegistroViejo ? ' title="Cargado con la escala anterior de 5 niveles"' : '';
+        animoHtml = `<span class="badge-animo" style="background:${a.color}; color:${a.texto};"${titulo}>${a.etiqueta}${esRegistroViejo ? ' *' : ''}</span>`;
+      }
     }
 
     const fotoHtml = r.foto_url
