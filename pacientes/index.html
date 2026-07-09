@@ -278,15 +278,28 @@
     font-size:0.9rem;
   }
 
-  /* ---------- ANTROPOMETRÍA CLÍNICA (solo lectura) ---------- */
-  .ant-tabla-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch;}
-  .ant-tabla{border-collapse:collapse; font-size:0.82rem; white-space:nowrap; width:100%;}
+  /* ---------- ANTROPOMETRÍA CLÍNICA (solo lectura, estilo informe) ---------- */
+  .ant-informe-hdr{
+    font-size:0.78rem;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--blanco);
+    background:linear-gradient(90deg, var(--azul), var(--teal));
+    padding:8px 12px;
+    border-radius:10px 10px 0 0;
+    margin-bottom:0;
+  }
+  .ant-tabla-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:0 0 10px 10px; overflow:hidden;}
+  .ant-tabla{border-collapse:collapse; font-size:0.8rem; white-space:nowrap; width:100%;}
   .ant-tabla th, .ant-tabla td{padding:8px 12px; border:1px solid var(--gris); text-align:center;}
-  .ant-tabla thead th{background:var(--azul); color:var(--blanco); font-weight:600; font-size:0.75rem;}
-  .ant-tabla thead th:first-child{text-align:left; position:sticky; left:0; background:var(--azul);}
+  .ant-tabla thead th{background:#134e4a; color:var(--blanco); font-weight:600; font-size:0.72rem;}
+  .ant-tabla thead th:first-child{text-align:left; position:sticky; left:0; background:#134e4a;}
   .ant-tabla tbody td:first-child{text-align:left; font-weight:600; color:var(--texto); position:sticky; left:0; background:#fafcfe;}
   .ant-tabla tbody tr:nth-child(even) td{background:#f8fbfe;}
   .ant-tabla tbody tr:nth-child(even) td:first-child{background:#f1f6fb;}
+  .ant-calc-dot{font-size:0.6rem; color:var(--teal);}
+  .ant-informe-nota{font-size:0.72rem; color:var(--texto-suave); margin-top:8px; font-style:italic;}
 
   /* ---------- RESUMEN DE HOY ---------- */
   .resumen-item{
@@ -1573,6 +1586,49 @@ function renderizarResumenSueno(habitos){
 // ═══ HISTORIAL ═══
 // ═══ ANTROPOMETRÍA CLÍNICA (solo lectura, cargada por el/la médico/a en URCyM) ═══
 // Se lee de la misma base (tabla paciente_tablas, tipo 'ant'), matcheando por DNI.
+// Muestra TODOS los parámetros cargados, con el mismo criterio que la pestaña
+// Antropometría de Historia Clínica / el informe impreso (solo filas con datos).
+const ANT_FILAS_PAC = [
+  { key:'Peso',          nombre:'Peso',              unidad:'kg' },
+  { key:'Altura',        nombre:'Altura',            unidad:'cm' },
+  { key:'IMC',           nombre:'IMC',               unidad:'kg/m²', calc:true },
+  { key:'Cintura',       nombre:'Cintura',           unidad:'cm' },
+  { key:'Cadera',        nombre:'Cadera',            unidad:'cm' },
+  { key:'Cuello',        nombre:'Cuello',            unidad:'cm' },
+  { key:'CintEst',       nombre:'Cintura/Estatura',  unidad:'',    calc:true },
+  { key:'CintCad',       nombre:'Cintura/Cadera',    unidad:'',    calc:true },
+  { key:'PctGrasa',      nombre:'% grasa',           unidad:'%' },
+  { key:'PctMusculo',    nombre:'% músculo',         unidad:'%' },
+  { key:'GrasaVisceral', nombre:'Grasa visceral',    unidad:'' },
+  { key:'FueraPres',     nombre:'Fuera de presión',  unidad:'cm' },
+];
+
+function _antGet(ant, key, ci){
+  const fi = ANT_FILAS_PAC.findIndex(f => f.key === key);
+  if(fi < 0) return null;
+  const v = (ant.filas[fi] || [])[ci];
+  const n = parseFloat(v);
+  return (v != null && v !== '' && !isNaN(n)) ? n : null;
+}
+
+// Completa IMC / Cintura-Estatura / Cintura-Cadera si el médico no las cargó calculadas
+// (misma fórmula que usa calcAntValues en el sistema del consultorio).
+function _antCompletarCalculados(ant){
+  ant.columnas.forEach((_, ci) => {
+    const peso = _antGet(ant, 'Peso', ci), altura = _antGet(ant, 'Altura', ci);
+    const cintura = _antGet(ant, 'Cintura', ci), cadera = _antGet(ant, 'Cadera', ci);
+    const set = (key, val) => {
+      const fi = ANT_FILAS_PAC.findIndex(f => f.key === key);
+      if(fi < 0) return;
+      if(!ant.filas[fi]) ant.filas[fi] = [];
+      if(!ant.filas[fi][ci] && val != null) ant.filas[fi][ci] = (Math.round(val * 100) / 100) + '';
+    };
+    if(peso && altura) set('IMC', peso / Math.pow(altura / 100, 2));
+    if(cintura && altura) set('CintEst', cintura / altura);
+    if(cintura && cadera) set('CintCad', cintura / cadera);
+  });
+}
+
 async function cargarAntropometriaClinica(){
   if(!pacienteActual) return;
   const cont = document.getElementById('listaAntropometriaClinica');
@@ -1594,38 +1650,28 @@ async function cargarAntropometriaClinica(){
   let ant = null;
   try { ant = data?.datos ? JSON.parse(data.datos) : null; } catch(e) { ant = null; }
 
-  if(!ant || !ant.columnas || !ant.columnas.length){
+  if(!ant || !ant.columnas || !ant.columnas.length || !ant.filas){
     cont.innerHTML = '<div class="vacio">Tu médico/a todavía no cargó medidas.</div>';
     return;
   }
 
-  // Filas de interés para el paciente: Peso, IMC (calculado) y Cintura.
-  const FILAS_PAC = [
-    { key:'Peso',    nombre:'Peso',    unidad:'kg' },
-    { key:'IMC',     nombre:'IMC',     unidad:'kg/m²' },
-    { key:'Cintura', nombre:'Cintura', unidad:'cm' },
-  ];
-  const idxKey = k => (ant.columnas || []).map((_,ci)=>ci); // todas las columnas disponibles
+  _antCompletarCalculados(ant);
 
-  // Buscamos el índice de fila real dentro de ant.filas según el orden guardado por URCyM
-  // (Peso, Altura, IMC, Cintura, Cadera, Cuello, ...) — si no coincide, calculamos IMC nosotros.
-  const ORDEN_URCYM = ['Peso','Altura','IMC','Cintura','Cadera','Cuello','CintEst','CintCad','PctGrasa','PctMusculo','GrasaVisceral','FueraPres'];
-  const filaDe = key => {
-    const fi = ORDEN_URCYM.indexOf(key);
-    return fi >= 0 ? (ant.filas[fi] || []) : [];
-  };
-
-  const filaPeso = filaDe('Peso');
-  const filaAltura = filaDe('Altura');
-  let filaIMC = filaDe('IMC');
-  const filaCintura = filaDe('Cintura');
-
-  // Últimas 6 fechas que tengan al menos un dato de peso, IMC o cintura
-  const colsConDato = ant.columnas.map((_,ci)=>ci).filter(ci =>
-    (filaPeso[ci] || filaIMC[ci] || filaCintura[ci]));
+  // Últimas 6 fechas con algún dato cargado (en cualquier parámetro)
+  const colsConDato = ant.columnas.map((_, ci) => ci).filter(ci =>
+    ANT_FILAS_PAC.some(f => _antGet(ant, f.key, ci) != null));
   const colsMostrar = colsConDato.slice(-6);
 
   if(!colsMostrar.length){
+    cont.innerHTML = '<div class="vacio">Tu médico/a todavía no cargó medidas.</div>';
+    return;
+  }
+
+  // Solo mostramos filas (parámetros) que tengan al menos un valor en las columnas visibles
+  const filasConDato = ANT_FILAS_PAC.filter(f =>
+    colsMostrar.some(ci => _antGet(ant, f.key, ci) != null));
+
+  if(!filasConDato.length){
     cont.innerHTML = '<div class="vacio">Tu médico/a todavía no cargó medidas.</div>';
     return;
   }
@@ -1634,26 +1680,21 @@ async function cargarAntropometriaClinica(){
 
   const theadCols = colsMostrar.map(ci => `<th>${fmtF(ant.columnas[ci])}</th>`).join('');
 
-  const filaHTML = (nombre, unidad, valores) => {
+  const filasHTML = filasConDato.map(f => {
     const tds = colsMostrar.map(ci => {
-      let v = valores[ci];
-      if(nombre === 'IMC' && !v){
-        const p = parseFloat(filaPeso[ci]), a = parseFloat(filaAltura[ci]);
-        if(p && a) v = (p / ((a/100)*(a/100))).toFixed(1);
-      }
-      return `<td>${v ? v + (unidad ? ' ' + unidad : '') : '—'}</td>`;
+      const v = _antGet(ant, f.key, ci);
+      return `<td>${v != null ? v + (f.unidad ? ' ' + f.unidad : '') : '—'}</td>`;
     }).join('');
-    return `<tr><td>${nombre}</td>${tds}</tr>`;
-  };
+    return `<tr><td>${f.nombre}${f.calc ? ' <span class="ant-calc-dot">●</span>' : ''}</td>${tds}</tr>`;
+  }).join('');
 
-  cont.innerHTML = `<div class="ant-tabla-wrap"><table class="ant-tabla">
-    <thead><tr><th>Fecha</th>${theadCols}</tr></thead>
-    <tbody>
-      ${filaHTML('Peso', 'kg', filaPeso)}
-      ${filaHTML('IMC', '', filaIMC)}
-      ${filaHTML('Cintura', 'cm', filaCintura)}
-    </tbody>
-  </table></div>`;
+  cont.innerHTML = `
+    <div class="ant-informe-hdr">📏 Evolución antropométrica</div>
+    <div class="ant-tabla-wrap"><table class="ant-tabla">
+      <thead><tr><th>Parámetro</th>${theadCols}</tr></thead>
+      <tbody>${filasHTML}</tbody>
+    </table></div>
+    <div class="ant-informe-nota">● Valor calculado automáticamente a partir de otras medidas.</div>`;
 }
 
 async function cargarHistorial(){
