@@ -438,6 +438,12 @@
       <!-- ---- REGISTRO ---- -->
       <div class="panel active" id="panel-registro">
         <div class="card">
+          <h3>¿Cómo te sentís hoy?</h3>
+          <div class="animo-fila" id="animoFila"></div>
+          <div class="animo-leyenda" id="animoLeyenda">Tocá la carita que más se parece a como te sentís</div>
+        </div>
+
+        <div class="card">
           <h3>Peso y medidas</h3>
           <div class="campo">
             <label>Peso</label>
@@ -498,12 +504,6 @@
         <div class="card">
           <h3>Nota (opcional)</h3>
           <textarea id="inNota" placeholder="¿Algo que quieras comentarle a tu médico/a?"></textarea>
-        </div>
-
-        <div class="card">
-          <h3>¿Cómo te sentís hoy?</h3>
-          <div class="animo-fila" id="animoFila"></div>
-          <div class="animo-leyenda" id="animoLeyenda">Tocá la carita que más se parece a como te sentís</div>
         </div>
 
         <button class="btn btn-primary" id="btnGuardarRegistro">Guardar registro</button>
@@ -616,9 +616,12 @@ const ESCALA_CARITAS = [
 
 function svgCarita(curva){
   const yControl = 24 + curva;
-  const ceja = curva < -4 ? '' : `
-    <path d="M9 12 Q13 ${curva>4?15:9} 17 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
-    <path d="M23 12 Q27 ${curva>4?15:9} 31 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+  // Las cejas siguen la misma curva que la boca de forma continua y proporcional
+  // (antes se quitaban del todo en las caras más felices, por eso se veían "sin cejas").
+  const browY = 12 + curva * 0.45;
+  const ceja = `
+    <path d="M9 12 Q13 ${browY.toFixed(1)} 17 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M23 12 Q27 ${browY.toFixed(1)} 31 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>`;
   return `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
     <circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" stroke-width="2.5"/>
     <circle cx="13" cy="17" r="2.2" fill="currentColor"/>
@@ -687,56 +690,76 @@ async function hacerLogin(){
   btn.disabled = true;
   btn.textContent = 'Ingresando...';
 
-  // El DNI se traduce a un email interno; el paciente nunca lo ve
-  const email = `${dni}@appdipo.local`;
-  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  try{
+    // El DNI se traduce a un email interno; el paciente nunca lo ve
+    const email = `${dni}@appdipo.local`;
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
 
-  btn.disabled = false;
-  btn.textContent = 'Ingresar';
+    if(error){
+      errBox.textContent = 'Email o contraseña incorrectos.';
+      errBox.style.display = 'block';
+      return;
+    }
 
-  if(error){
-    errBox.textContent = 'Email o contraseña incorrectos.';
+    usuarioActual = data.user;
+    await cargarPaciente();
+  }catch(e){
+    console.error(e);
+    errBox.textContent = 'No se pudo conectar. Revisá tu conexión a internet y probá de nuevo.';
     errBox.style.display = 'block';
-    return;
+  }finally{
+    btn.disabled = false;
+    btn.textContent = 'Ingresar';
   }
-
-  usuarioActual = data.user;
-  await cargarPaciente();
 }
 
 async function cargarPaciente(){
-  const { data, error } = await sb
-    .from('appdipo_pacientes')
-    .select('*, pacientes(nombre, apellido)')
-    .eq('user_id', usuarioActual.id)
-    .maybeSingle();
+  try{
+    const { data, error } = await sb
+      .from('appdipo_pacientes')
+      .select('*, pacientes(nombre, apellido)')
+      .eq('user_id', usuarioActual.id)
+      .maybeSingle();
 
-  if(error || !data){
-    document.getElementById('loginError').textContent = 'Tu cuenta todavía no está vinculada a un paciente. Contactá a tu médico/a.';
-    document.getElementById('loginError').style.display = 'block';
-    await sb.auth.signOut();
-    return;
+    if(error || !data){
+      document.getElementById('loginError').textContent = 'Tu cuenta todavía no está vinculada a un paciente. Contactá a tu médico/a.';
+      document.getElementById('loginError').style.display = 'block';
+      await sb.auth.signOut();
+      return;
+    }
+
+    pacienteActual = data;
+    const nombre = data.pacientes ? `${data.pacientes.nombre || ''}`.trim() : '';
+    document.getElementById('nombrePaciente').textContent = nombre || 'Paciente';
+
+    vistaLogin.style.display = 'none';
+    vistaApp.style.display = 'flex';
+
+    cargarMensaje();
+    cargarHistorial();
+  }catch(e){
+    console.error(e);
+    const errBox = document.getElementById('loginError');
+    errBox.textContent = 'No se pudo conectar. Revisá tu conexión a internet y probá de nuevo.';
+    errBox.style.display = 'block';
   }
-
-  pacienteActual = data;
-  const nombre = data.pacientes ? `${data.pacientes.nombre || ''}`.trim() : '';
-  document.getElementById('nombrePaciente').textContent = nombre || 'Paciente';
-
-  vistaLogin.style.display = 'none';
-  vistaApp.style.display = 'flex';
-
-  cargarMensaje();
-  cargarHistorial();
 }
 
 document.getElementById('btnSalir').addEventListener('click', async ()=>{
-  await sb.auth.signOut();
+  // Primero volvemos a la pantalla de login localmente: así el botón
+  // "Salir" siempre responde, aunque falle la conexión con el servidor.
   usuarioActual = null;
   pacienteActual = null;
   vistaApp.style.display = 'none';
   vistaLogin.style.display = 'flex';
   document.getElementById('loginDni').value = '';
   document.getElementById('loginPass').value = '';
+
+  try{
+    await sb.auth.signOut();
+  }catch(e){
+    console.error('No se pudo cerrar sesión en el servidor, pero se cerró localmente.', e);
+  }
 });
 
 // ═══ TABS ═══
@@ -1030,10 +1053,14 @@ async function cargarHistorial(){
 
 // ═══ SESIÓN PERSISTENTE ═══
 (async ()=>{
-  const { data } = await sb.auth.getSession();
-  if(data.session){
-    usuarioActual = data.session.user;
-    await cargarPaciente();
+  try{
+    const { data } = await sb.auth.getSession();
+    if(data.session){
+      usuarioActual = data.session.user;
+      await cargarPaciente();
+    }
+  }catch(e){
+    console.error('No se pudo verificar la sesión guardada.', e);
   }
 })();
 </script>
