@@ -502,6 +502,31 @@
   .dash-duda-btn .flecha{font-size:0.65rem; transition:transform .15s ease;}
   .dash-duda-btn.abierto .flecha{transform:rotate(180deg);}
 
+  /* ---------- OBJETIVOS DE ACTIVIDAD (semanales) ---------- */
+  .obj-semanal{padding:14px 4px; border-bottom:1px solid var(--gris);}
+  .obj-semanal:last-child{border-bottom:none;}
+  .obj-semanal-header{display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap;}
+  .obj-semanal-titulo{font-size:0.92rem; font-weight:700;}
+  .obj-semanal-progreso-texto{font-size:0.78rem; color:var(--texto-suave); font-weight:600;}
+  .mini-label{font-size:0.75rem; font-weight:600; color:var(--texto-suave); margin-bottom:6px;}
+  .chips-fila{display:flex; flex-wrap:wrap; gap:8px;}
+  .chip-toggle{
+    font-size:0.8rem; font-weight:600; padding:7px 13px; border-radius:20px;
+    background:#F0F0F0; color:var(--texto-suave); cursor:pointer; border:1.5px solid transparent; user-select:none;
+  }
+  .chip-toggle.sel{background:#E4F5F0; color:#1F9D6D; border-color:#1F9D6D;}
+  .entradas-lista{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:4px;}
+  .entrada-chip{
+    font-size:0.76rem; font-weight:600; padding:5px 6px 5px 11px; border-radius:20px;
+    background:#E9F3FC; color:var(--azul); display:inline-flex; align-items:center; gap:4px;
+  }
+  .quitar-entrada{background:none; border:none; color:var(--azul); font-weight:700; cursor:pointer; padding:0 4px; font-size:0.85rem;}
+  .hoy-vacio{font-size:0.78rem; color:var(--texto-suave);}
+  .btn-agregar-mini{
+    margin-top:10px; background:var(--azul); color:#fff; border:none; padding:9px 16px;
+    border-radius:8px; font-size:0.82rem; font-weight:600; cursor:pointer; font-family:inherit;
+  }
+
   .dash-info-panel{
     display:none;
     margin-top:8px;
@@ -1550,16 +1575,16 @@ async function guardarMedidas(){
 
 // ═══ HABITOS DINÁMICOS (objetivos cargados por el profesional) ═══
 function actualizarResumenHabitos(){
-  const chksActividad = document.querySelectorAll('.chk-objetivo[data-tipo="actividad"]');
+  const objetivosAct = (pacienteActual.objetivos_actividad || []).filter(o => o && o.id);
   const elAct = document.getElementById('resumenActividad');
-  if(!chksActividad.length){
+  if(!objetivosAct.length){
     elAct.innerHTML = `<span class="resumen-icono">—</span><span>Todavía no tenés objetivos de actividad cargados.</span>`;
   } else {
-    const cumplidos = Array.from(chksActividad).filter(c => c.checked).length;
-    if(cumplidos === chksActividad.length){
-      elAct.innerHTML = `<span class="resumen-icono">✅</span><span>¡Cumpliste tu objetivo de actividad de hoy!</span>`;
+    const cumplidos = objetivosAct.filter(o => totalMinutosSemana(o.id) >= o.meta_minutos).length;
+    if(cumplidos === objetivosAct.length){
+      elAct.innerHTML = `<span class="resumen-icono">✅</span><span>¡Cumpliste todos tus objetivos de actividad de esta semana!</span>`;
     } else {
-      elAct.innerHTML = `<span class="resumen-icono">⏳</span><span>Actividad: ${cumplidos}/${chksActividad.length} objetivos cumplidos hoy</span>`;
+      elAct.innerHTML = `<span class="resumen-icono">⏳</span><span>Actividad: ${cumplidos}/${objetivosAct.length} objetivos cumplidos esta semana</span>`;
     }
   }
 
@@ -1573,10 +1598,6 @@ function actualizarResumenHabitos(){
     contAlim.innerHTML = `<span class="resumen-chip ${cumplidos === conObjetivo.length ? 'on' : ''}">🥗 Alimentación: ${cumplidos}/${conObjetivo.length} grupos cumplidos hoy</span>`;
   }
 }
-
-document.addEventListener('change', e=>{
-  if(e.target.classList.contains('chk-objetivo')) actualizarResumenHabitos();
-});
 
 // ═══ ALIMENTACIÓN DASH (porciones consumidas hoy) ═══
 // Objetivos de proteínas y calcio: los define el profesional (pacienteActual.objetivo_*).
@@ -1680,21 +1701,103 @@ document.addEventListener('click', e=>{
   }
 });
 
-function renderizarListaObjetivos(contenedorId, objetivos){
-  const cont = document.getElementById(contenedorId);
-  if(!objetivos || objetivos.length === 0){
-    cont.innerHTML = `<div class="objetivo-vacio">Tu médico/a todavía no cargó objetivos acá.</div>`;
+// ═══ OBJETIVOS DE ACTIVIDAD FÍSICA (semanales, definidos por el profesional) ═══
+const BLOQUES_TIEMPO_ACTIVIDAD = [15, 30, 45, 60];
+let habitosSemanaConDatos = [];  // [{ fecha, actividad_json }] de días ya guardados esta semana
+let registroActividadDia = {};   // { objId: [{actividad, minutos}, ...] } del día que se está cargando (aún sin guardar)
+let seleccionActividadTemp = {}; // { objId: { actividad, tiempo } } selección de chips en curso
+
+function totalMinutosSemana(objId){
+  let total = 0;
+  habitosSemanaConDatos.forEach(h=>{
+    const entradas = (h.actividad_json && h.actividad_json[objId]) || [];
+    entradas.forEach(e=> total += (e.minutos || 0));
+  });
+  (registroActividadDia[objId] || []).forEach(e=> total += (e.minutos || 0));
+  return total;
+}
+
+function renderizarObjetivosActividadPaciente(){
+  const cont = document.getElementById('listaObjetivosActividad');
+  const objetivos = (pacienteActual.objetivos_actividad || []).filter(o => o && o.id);
+
+  if(!objetivos.length){
+    cont.innerHTML = `<div class="objetivo-vacio">Tu médico/a todavía no cargó objetivos de actividad.</div>`;
     return;
   }
-  cont.innerHTML = objetivos.map(obj=>`
-    <div class="habito-item">
-      <span class="nombre">${obj.label}</span>
-      <label class="switch">
-        <input type="checkbox" class="chk-objetivo" data-tipo="actividad" data-key="${obj.key}">
-        <span class="slider"></span>
-      </label>
-    </div>
-  `).join('');
+
+  cont.innerHTML = objetivos.map(obj=>{
+    const total = totalMinutosSemana(obj.id);
+    const pct = Math.min(100, Math.round((total / obj.meta_minutos) * 100));
+    const cumplido = total >= obj.meta_minutos;
+    const etiqueta = obj.intensidad === 'vigorosa' ? 'Actividad vigorosa' : 'Actividad moderada';
+    const entradasDia = registroActividadDia[obj.id] || [];
+
+    const chipsActividades = obj.actividades.map(a=>
+      `<span class="chip-toggle" data-obj="${obj.id}" data-tipo="actividad" data-valor="${a}">${a}</span>`
+    ).join('');
+    const chipsTiempo = BLOQUES_TIEMPO_ACTIVIDAD.map(m=>
+      `<span class="chip-toggle" data-obj="${obj.id}" data-tipo="tiempo" data-valor="${m}">${m} min</span>`
+    ).join('');
+
+    const listaDia = entradasDia.length
+      ? entradasDia.map((e,i)=>`<span class="entrada-chip">${e.actividad} · ${e.minutos} min <button type="button" class="quitar-entrada" data-obj="${obj.id}" data-idx="${i}">×</button></span>`).join('')
+      : '<span class="hoy-vacio">Todavía no cargaste actividad para este día.</span>';
+
+    return `
+      <div class="obj-semanal" data-obj-id="${obj.id}">
+        <div class="obj-semanal-header">
+          <span class="obj-semanal-titulo">${etiqueta}</span>
+          <span class="obj-semanal-progreso-texto">${total} / ${obj.meta_minutos} min</span>
+        </div>
+        <div class="dash-progress-track"><div class="dash-progress-fill ${cumplido ? 'cumplido' : ''}" style="width:${pct}%"></div></div>
+
+        <div class="mini-label" style="margin-top:12px;">Cargado para este día:</div>
+        <div class="entradas-lista">${listaDia}</div>
+
+        <div class="mini-label" style="margin-top:10px;">¿Qué actividad hiciste?</div>
+        <div class="chips-fila">${chipsActividades}</div>
+        <div class="mini-label" style="margin-top:8px;">¿Cuánto tiempo?</div>
+        <div class="chips-fila">${chipsTiempo}</div>
+        <button type="button" class="btn-agregar-mini" data-obj="${obj.id}">+ Agregar</button>
+      </div>
+    `;
+  }).join('');
+
+  cont.querySelectorAll('.chip-toggle').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const objId = chip.dataset.obj;
+      const tipo = chip.dataset.tipo;
+      seleccionActividadTemp[objId] = seleccionActividadTemp[objId] || {};
+      chip.parentElement.querySelectorAll('.chip-toggle').forEach(c=>c.classList.remove('sel'));
+      chip.classList.add('sel');
+      seleccionActividadTemp[objId][tipo] = tipo === 'tiempo' ? parseInt(chip.dataset.valor, 10) : chip.dataset.valor;
+    });
+  });
+
+  cont.querySelectorAll('.btn-agregar-mini').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const objId = btn.dataset.obj;
+      const sel = seleccionActividadTemp[objId];
+      if(!sel || !sel.actividad || !sel.tiempo){
+        mostrarToast('Elegí una actividad y un tiempo primero.', false);
+        return;
+      }
+      if(!registroActividadDia[objId]) registroActividadDia[objId] = [];
+      registroActividadDia[objId].push({ actividad: sel.actividad, minutos: sel.tiempo });
+      seleccionActividadTemp[objId] = {};
+      renderizarObjetivosActividadPaciente();
+      actualizarResumenHabitos();
+    });
+  });
+
+  cont.querySelectorAll('.quitar-entrada').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      registroActividadDia[btn.dataset.obj].splice(parseInt(btn.dataset.idx, 10), 1);
+      renderizarObjetivosActividadPaciente();
+      actualizarResumenHabitos();
+    });
+  });
 }
 
 // ═══ CALENDARIO SEMANAL DE HÁBITOS ═══
@@ -1805,12 +1908,14 @@ function seleccionarDiaHabitos(fecha){
 
   // El día elegido siempre está vacío (los completados quedan bloqueados),
   // así que reseteamos el formulario.
-  document.querySelectorAll('.chk-objetivo[data-tipo="actividad"]').forEach(chk=> chk.checked = false);
+  registroActividadDia = {};
+  seleccionActividadTemp = {};
   estadoDash = {};
   document.getElementById('inSuenoHoras').value = '';
   document.getElementById('inPasosHoy').value = '';
   document.getElementById('inPantallaHoy').value = '';
   document.getElementById('inPausasHoy').value = '';
+  renderizarObjetivosActividadPaciente();
   renderizarListaDash();
   actualizarResumenHabitos();
 
@@ -1839,34 +1944,39 @@ async function cargarPanelHabitos(){
     Object.assign(pacienteActual, actualizado);
   }
 
-  renderizarListaObjetivos('listaObjetivosActividad', pacienteActual.objetivos_actividad);
+  renderizarObjetivosActividadPaciente();
 
   document.getElementById('campoPausasActivas').style.display = pacienteActual.objetivo_pausas_activas ? 'block' : 'none';
 
   // Traemos los hábitos de TODA la semana actual (lunes a domingo) para saber
-  // qué días ya quedaron cargados y bloqueados.
+  // qué días ya quedaron cargados y bloqueados, y sumar los minutos de
+  // actividad ya registrados hacia los objetivos semanales.
   const dias = obtenerDiasSemanaActual();
   const fechaLunes = fechaISO(dias[0]);
   const fechaDomingo = fechaISO(dias[6]);
 
   const { data: habitosSemana } = await sb
     .from('appdipo_habitos')
-    .select('fecha')
+    .select('fecha, actividad_json')
     .eq('dni', pacienteActual.dni)
     .gte('fecha', fechaLunes)
     .lte('fecha', fechaDomingo);
 
   mapaHabitosSemana = {};
+  habitosSemanaConDatos = habitosSemana || [];
   (habitosSemana || []).forEach(h=>{ mapaHabitosSemana[h.fecha] = true; });
 
   diaSeleccionadoHabitos = elegirDiaPorDefecto();
 
+  registroActividadDia = {};
+  seleccionActividadTemp = {};
   estadoDash = {};
   document.getElementById('inSuenoHoras').value = '';
   document.getElementById('inPasosHoy').value = '';
   document.getElementById('inPantallaHoy').value = '';
   document.getElementById('inPausasHoy').value = '';
 
+  renderizarObjetivosActividadPaciente();
   renderizarListaDash();
   actualizarResumenHabitos();
   renderizarCalendarioSemana();
@@ -1878,10 +1988,7 @@ document.getElementById('btnGuardarHabitos').addEventListener('click', guardarHa
 async function guardarHabitos(){
   if(!pacienteActual || !diaSeleccionadoHabitos) return;
 
-  const actividad_json = {};
-  document.querySelectorAll('.chk-objetivo[data-tipo="actividad"]').forEach(chk=>{
-    actividad_json[chk.dataset.key] = chk.checked;
-  });
+  const actividad_json = registroActividadDia;
 
   const sueno_horas = parseFloat(document.getElementById('inSuenoHoras').value) || null;
   const pasos = parseInt(document.getElementById('inPasosHoy').value, 10) || null;
@@ -1914,8 +2021,12 @@ async function guardarHabitos(){
     return;
   }
 
-  // El día recién guardado queda bloqueado; buscamos el próximo día disponible.
+  // El día recién guardado queda bloqueado; lo sumamos a los datos de la
+  // semana para que los objetivos semanales reflejen el progreso ya guardado.
   mapaHabitosSemana[fechaAGuardar] = true;
+  habitosSemanaConDatos.push({ fecha: fechaAGuardar, actividad_json });
+  registroActividadDia = {};
+
   diaSeleccionadoHabitos = elegirDiaPorDefecto();
   if(diaSeleccionadoHabitos){
     seleccionarDiaHabitos(diaSeleccionadoHabitos);
@@ -2034,8 +2145,8 @@ function renderizarResumenAlimentacion(habitos){
 
 function renderizarResumenActividad(habitos){
   const cont = document.getElementById('cardResumenActividad');
-  const objetivos = pacienteActual.objetivos_actividad || [];
-  const conDatos = habitos.filter(h => h.actividad_json);
+  const objetivos = (pacienteActual.objetivos_actividad || []).filter(o => o && o.id);
+  const conDatos = habitos.filter(h => h.actividad_json && Object.keys(h.actividad_json).length);
 
   if(!objetivos.length){
     cont.innerHTML = '<h3>Actividad física</h3><div class="vacio">Tu médico/a todavía no cargó objetivos de actividad.</div>';
@@ -2046,15 +2157,18 @@ function renderizarResumenActividad(habitos){
     return;
   }
 
-  const porcentajesPorDia = conDatos.map(h=>{
-    const cumplidos = objetivos.filter(o => h.actividad_json[o.key]).length;
-    return (cumplidos / objetivos.length) * 100;
-  });
-  const promedio = porcentajesPorDia.reduce((a,b)=>a+b, 0) / porcentajesPorDia.length;
-  const diasCompletos = porcentajesPorDia.filter(p => p === 100).length;
+  const filas = objetivos.map(obj=>{
+    let total = 0;
+    habitos.forEach(h=>{
+      const entradas = (h.actividad_json && h.actividad_json[obj.id]) || [];
+      entradas.forEach(e=> total += (e.minutos || 0));
+    });
+    const pct = Math.round((total / obj.meta_minutos) * 100);
+    const etiqueta = obj.intensidad === 'vigorosa' ? 'Actividad vigorosa' : 'Actividad moderada';
+    return filaResumen(etiqueta, pct, `${total} / ${obj.meta_minutos} min esta semana`);
+  }).join('');
 
-  cont.innerHTML = `<h3>Actividad física</h3>
-    ${filaResumen('Cumplimiento promedio de objetivos', promedio, `${diasCompletos} de ${conDatos.length} días con todos los objetivos cumplidos`)}`;
+  cont.innerHTML = `<h3>Actividad física</h3>${filas}`;
 }
 
 function renderizarResumenBienestar(registros){
