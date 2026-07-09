@@ -549,6 +549,39 @@
   }
   .resumen-semana-nota{font-size:0.78rem; color:var(--texto-suave); margin-top:4px;}
 
+  .resumen-alimento-fila{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:12px 0;
+    border-bottom:1px solid #F0F0F0;
+  }
+  .resumen-alimento-fila:last-child{border-bottom:none;}
+  .resumen-alimento-icono{font-size:1.9rem; flex-shrink:0; width:34px; text-align:center;}
+  .resumen-alimento-info{flex:1; min-width:0;}
+  .resumen-alimento-titulo{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    font-size:0.86rem;
+    font-weight:600;
+    margin-bottom:6px;
+    gap:8px;
+  }
+  .resumen-alimento-titulo .cantidad{color:var(--texto-suave); font-weight:700; font-size:0.8rem; white-space:nowrap;}
+  .resumen-alimento-barra{
+    height:12px;
+    background:#F0F0F0;
+    border-radius:20px;
+    overflow:hidden;
+  }
+  .resumen-alimento-barra .relleno{
+    height:100%;
+    background:var(--teal);
+    border-radius:20px;
+    transition:width .3s ease;
+  }
+
   .dash-dia-detalle-titulo{
     font-size:0.78rem;
     font-weight:700;
@@ -1927,6 +1960,23 @@ function filaResumen(titulo, porcentaje, nota){
   </div>`;
 }
 
+function filaResumenAlimento(icono, nombre, consumido, objetivoSemanal){
+  const objetivoTexto = Number.isInteger(objetivoSemanal) ? objetivoSemanal : objetivoSemanal.toFixed(1);
+  const consumidoTexto = Number.isInteger(consumido) ? consumido : consumido.toFixed(1);
+  const pct = objetivoSemanal > 0 ? Math.round(Math.max(0, Math.min(100, (consumido / objetivoSemanal) * 100))) : 0;
+
+  return `<div class="resumen-alimento-fila">
+    <span class="resumen-alimento-icono">${icono}</span>
+    <div class="resumen-alimento-info">
+      <div class="resumen-alimento-titulo">
+        <span>${nombre}</span>
+        <span class="cantidad">${consumidoTexto} de ${objetivoTexto}</span>
+      </div>
+      <div class="resumen-alimento-barra"><div class="relleno" style="width:${pct}%"></div></div>
+    </div>
+  </div>`;
+}
+
 function renderizarResumenAlimentacion(habitos){
   const cont = document.getElementById('cardResumenAlimentacion');
   const conDatos = habitos.filter(h => h.alimentacion_dash_json);
@@ -1935,21 +1985,27 @@ function renderizarResumenAlimentacion(habitos){
     return;
   }
 
+  // El 100% de cada grupo es lo que tiene que comer en TODA la semana
+  // (objetivo diario × 7 días). A medida que carga días, se va "pintando".
   const categoriasConObjetivo = CATALOGO_DASH.filter(c => c.key !== 'huevo');
   let filasHtml = '';
-  let sumaPromedios = 0;
+  let totalConsumido = 0;
+  let totalObjetivo = 0;
 
   categoriasConObjetivo.forEach(cat=>{
-    const objetivo = obtenerObjetivoDash(cat.key);
-    if(objetivo == null) return;
-    const diasCumplidos = conDatos.filter(h => (h.alimentacion_dash_json[cat.key] || 0) >= objetivo).length;
-    const pct = (diasCumplidos / conDatos.length) * 100;
-    sumaPromedios += pct;
-    filasHtml += filaResumen(cat.nombre, pct, `${diasCumplidos} de ${conDatos.length} días cumpliste el objetivo`);
+    const objetivoDiario = obtenerObjetivoDash(cat.key);
+    if(objetivoDiario == null) return;
+    const objetivoSemanal = objetivoDiario * 7;
+    const consumidoSemanal = conDatos.reduce((acc,h) => acc + (h.alimentacion_dash_json[cat.key] || 0), 0);
+
+    totalConsumido += consumidoSemanal;
+    totalObjetivo += objetivoSemanal;
+
+    filasHtml += filaResumenAlimento(cat.icono, cat.nombre, consumidoSemanal, objetivoSemanal);
   });
 
   const huevoTotal = conDatos.reduce((acc,h) => acc + (h.alimentacion_dash_json.huevo || 0), 0);
-  const promedioGeneral = sumaPromedios / categoriasConObjetivo.length;
+  const pctGeneral = totalObjetivo > 0 ? Math.round(Math.min(100, (totalConsumido / totalObjetivo) * 100)) : 0;
 
   // Detalle día por día: lo que comiste vs. el objetivo de cada grupo, ese día puntual.
   const detalleDiasHtml = conDatos.slice().reverse().map(h=>{
@@ -1968,9 +2024,10 @@ function renderizarResumenAlimentacion(habitos){
   }).join('');
 
   cont.innerHTML = `<h3>Alimentación</h3>
-    ${filaResumen('Promedio general de la semana', promedioGeneral, null)}
-    ${filasHtml}
-    <div class="resumen-semana-nota" style="margin-top:6px;">🥚 Huevo: ${huevoTotal} porciones cargadas esta semana</div>
+    <div class="resumen-semana-nota" style="margin-bottom:14px;">El 100% es lo que tenés que comer <b>en toda la semana</b>. Se va pintando a medida que sumás días.</div>
+    ${filaResumen('Total de la semana', pctGeneral, null)}
+    <div style="margin-top:12px;">${filasHtml}</div>
+    <div class="resumen-semana-nota" style="margin-top:12px;">🥚 Huevo: ${huevoTotal} porciones cargadas esta semana</div>
     <div class="dash-dia-detalle-titulo">Detalle por día</div>
     ${detalleDiasHtml}`;
 }
