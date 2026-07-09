@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>AppDipo pacientes</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Amiko:wght@400;600;700&family=Encode+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --azul:#3089CA;
+    --teal:#4DBCBE;
+    --coral:#E25247;
+    --gris:#E1E1E1;
+    --texto:#2B2B2B;
+    --texto-suave:#6B7280;
+    --blanco:#FFFFFF;
+    --radio:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Encode Sans', sans-serif;
+    background:linear-gradient(180deg, #EAF5F9 0%, #FFFFFF 220px);
+    color:var(--texto);
+    min-height:100vh;
+    -webkit-tap-highlight-color:transparent;
+  }
+  h1,h2,h3{font-family:'Amiko', serif; margin:0;}
+  .app{
+    max-width:480px;
+    margin:0 auto;
+    min-height:100vh;
+    background:var(--blanco);
+    box-shadow:0 0 40px rgba(0,0,0,0.06);
+    display:flex;
+    flex-direction:column;
+  }
+
+  /* ---------- LOGIN ---------- */
+  #vista-login{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:32px 28px;
+    background:linear-gradient(160deg, var(--azul), var(--teal));
+    color:var(--blanco);
+  }
+  .logo-wrap{text-align:center; margin-bottom:36px;}
+  .logo-wrap h1{font-size:2.2rem; letter-spacing:0.5px;}
+  .logo-wrap p{margin-top:6px; font-size:0.9rem; opacity:0.9;}
+  .login-card{
+    background:var(--blanco);
+    border-radius:var(--radio);
+    padding:26px 22px;
+    color:var(--texto);
+  }
+  .campo{margin-bottom:16px;}
+  .campo label{
+    display:block;
+    font-size:0.8rem;
+    font-weight:600;
+    margin-bottom:6px;
+    color:var(--texto-suave);
+  }
+  .campo input{
+    width:100%;
+    padding:13px 14px;
+    border:1.5px solid var(--gris);
+    border-radius:10px;
+    font-size:1rem;
+    font-family:inherit;
+  }
+  .campo input:focus{outline:none; border-color:var(--azul);}
+  .btn{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:10px;
+    font-family:'Encode Sans', sans-serif;
+    font-weight:600;
+    font-size:1rem;
+    cursor:pointer;
+    transition:opacity .15s ease, transform .05s ease;
+  }
+  .btn:active{transform:scale(0.98);}
+  .btn-primary{background:var(--coral); color:var(--blanco);}
+  .btn-primary:disabled{opacity:0.6; cursor:default;}
+  .error-msg{
+    color:var(--coral);
+    font-size:0.85rem;
+    margin-top:10px;
+    text-align:center;
+    display:none;
+  }
+
+  /* ---------- APP (post-login) ---------- */
+  #vista-app{display:none; flex:1; flex-direction:column;}
+  header.top{
+    background:var(--azul);
+    color:var(--blanco);
+    padding:20px 20px 24px;
+    border-radius:0 0 20px 20px;
+  }
+  header.top .saludo{font-size:0.85rem; opacity:0.85;}
+  header.top h2{font-size:1.4rem; margin-top:2px;}
+  header.top .salir{
+    float:right;
+    background:rgba(255,255,255,0.18);
+    border:none;
+    color:var(--blanco);
+    padding:8px 14px;
+    border-radius:8px;
+    font-size:0.8rem;
+    cursor:pointer;
+  }
+
+  main{padding:18px 18px 100px; flex:1;}
+
+  .tabs{
+    display:flex;
+    gap:8px;
+    margin:-30px 0 18px;
+    padding:0 2px 4px;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab{
+    flex:0 0 auto;
+    min-width:88px;
+    background:var(--blanco);
+    border:1.5px solid var(--gris);
+    border-radius:12px;
+    padding:12px 8px;
+    text-align:center;
+    font-size:0.8rem;
+    font-weight:600;
+    color:var(--texto-suave);
+    cursor:pointer;
+    box-shadow:0 2px 8px rgba(0,0,0,0.06);
+  }
+  .tab.active{
+    background:var(--azul);
+    border-color:var(--azul);
+    color:var(--blanco);
+  }
+
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .card{
+    background:var(--blanco);
+    border:1.5px solid var(--gris);
+    border-radius:var(--radio);
+    padding:18px;
+    margin-bottom:14px;
+  }
+  .card h3{font-size:1rem; margin-bottom:14px; color:var(--azul);}
+
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+
+  .unidad{
+    display:flex;
+    align-items:center;
+    border:1.5px solid var(--gris);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  .unidad input{
+    border:none;
+    padding:12px;
+    width:100%;
+    font-size:1rem;
+    font-family:inherit;
+  }
+  .unidad input:focus{outline:none;}
+  .unidad span{
+    padding:0 12px;
+    background:#F4F4F4;
+    color:var(--texto-suave);
+    font-size:0.8rem;
+    font-weight:600;
+    align-self:stretch;
+    display:flex;
+    align-items:center;
+  }
+
+  .campo-opcional-label{
+    font-size:0.75rem;
+    color:var(--texto-suave);
+    margin-top:2px;
+  }
+
+  textarea{
+    width:100%;
+    border:1.5px solid var(--gris);
+    border-radius:10px;
+    padding:12px;
+    font-family:inherit;
+    font-size:0.95rem;
+    resize:vertical;
+    min-height:70px;
+  }
+  textarea:focus{outline:none; border-color:var(--azul);}
+
+  .foto-zone{
+    border:1.5px dashed var(--gris);
+    border-radius:10px;
+    padding:18px;
+    text-align:center;
+    color:var(--texto-suave);
+    font-size:0.85rem;
+    cursor:pointer;
+  }
+  .foto-zone.tiene-foto{border-style:solid; border-color:var(--teal); color:var(--teal);}
+  #inputFoto{display:none;}
+  #previewFoto{
+    max-width:100%;
+    border-radius:10px;
+    margin-top:10px;
+    display:none;
+  }
+
+  .habito-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:12px 4px;
+    border-bottom:1px solid var(--gris);
+  }
+  .habito-item:last-child{border-bottom:none;}
+  .habito-item .nombre{font-size:0.92rem;}
+  .switch{
+    position:relative;
+    width:46px;
+    height:26px;
+    flex-shrink:0;
+  }
+  .switch input{opacity:0; width:0; height:0;}
+  .slider{
+    position:absolute; inset:0;
+    background:var(--gris);
+    border-radius:20px;
+    cursor:pointer;
+    transition:.2s;
+  }
+  .slider::before{
+    content:"";
+    position:absolute;
+    height:20px; width:20px;
+    left:3px; top:3px;
+    background:var(--blanco);
+    border-radius:50%;
+    transition:.2s;
+  }
+  input:checked + .slider{background:var(--teal);}
+  input:checked + .slider::before{transform:translateX(20px);}
+
+  .historial-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:14px 4px;
+    border-bottom:1px solid var(--gris);
+  }
+  .historial-item:last-child{border-bottom:none;}
+  .historial-item .fecha{font-size:0.75rem; color:var(--texto-suave);}
+  .historial-item .peso{font-size:1.1rem; font-weight:700; color:var(--azul);}
+  .vacio{
+    text-align:center;
+    color:var(--texto-suave);
+    padding:24px 10px;
+    font-size:0.9rem;
+  }
+
+  /* ---------- RESUMEN DE HOY ---------- */
+  .resumen-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 0;
+    font-size:0.95rem;
+    font-weight:600;
+  }
+  .resumen-icono{font-size:1.2rem; line-height:1;}
+  .resumen-alimentos{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:8px;
+  }
+  .resumen-chip{
+    font-size:0.78rem;
+    font-weight:600;
+    padding:6px 12px;
+    border-radius:20px;
+    background:#F0F0F0;
+    color:var(--texto-suave);
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+  }
+  .resumen-chip.on{background:#E4F5F0; color:#1F9D6D;}
+
+  .toast{
+    position:fixed;
+    bottom:24px;
+    left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:var(--texto);
+    color:var(--blanco);
+    padding:12px 20px;
+    border-radius:10px;
+    font-size:0.9rem;
+    opacity:0;
+    transition:.25s;
+    pointer-events:none;
+    max-width:90%;
+    text-align:center;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  /* ---------- BANNER MENSAJE ---------- */
+  .banner-mensaje{
+    background:#EAF7F6;
+    border:1.5px solid var(--teal);
+    border-radius:12px;
+    padding:14px 16px;
+    font-size:0.88rem;
+    color:var(--texto);
+    margin-bottom:16px;
+    display:none;
+  }
+  .banner-mensaje.show{display:block;}
+
+  /* ---------- ANIMO (Escala de Caritas, Andrews & Withey) ---------- */
+  .animo-fila{
+    display:flex;
+    justify-content:space-between;
+    gap:4px;
+  }
+  .animo-btn{
+    flex:1;
+    background:var(--blanco);
+    border:1.5px solid var(--gris);
+    border-radius:12px;
+    padding:8px 2px 6px;
+    cursor:pointer;
+    transition:transform .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .animo-btn svg{width:100%; height:auto; max-width:34px; display:block;}
+  .animo-btn:active{transform:scale(0.94);}
+  .animo-btn.selected{
+    border-color:var(--mood-color, var(--teal));
+    background:var(--mood-bg, #EAF7F6);
+    box-shadow:0 3px 10px rgba(0,0,0,0.08);
+    transform:scale(1.08);
+  }
+  .animo-leyenda{
+    text-align:center;
+    font-size:0.85rem;
+    font-weight:600;
+    color:var(--texto-suave);
+    margin-top:10px;
+    min-height:1.2em;
+  }
+  .animo-leyenda.tiene-seleccion{color:var(--teal);}
+
+  /* ---------- AYUDA ---------- */
+  .ayuda-paso{
+    display:flex;
+    gap:12px;
+    margin-bottom:16px;
+    align-items:flex-start;
+  }
+  .ayuda-paso:last-child{margin-bottom:0;}
+  .ayuda-num{
+    background:var(--azul);
+    color:var(--blanco);
+    width:26px; height:26px;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:0.85rem;
+    font-weight:700;
+    flex-shrink:0;
+  }
+  .ayuda-txt{font-size:0.9rem; line-height:1.4;}
+  .ayuda-txt b{color:var(--azul);}
+
+  .objetivo-vacio{
+    font-size:0.85rem;
+    color:var(--texto-suave);
+    text-align:center;
+    padding:14px 6px;
+  }
+
+  /* ---------- ALIMENTACIÓN DASH (contadores de porciones) ---------- */
+  .dash-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:12px 4px;
+    border-bottom:1px solid var(--gris);
+  }
+  .dash-item:last-child{border-bottom:none;}
+  .dash-info .nombre{font-size:0.92rem; font-weight:600;}
+  .dash-info .meta{font-size:0.75rem; color:var(--texto-suave); margin-top:2px;}
+  .dash-info .meta.cumplido{color:#1F9D6D; font-weight:600;}
+  .dash-stepper{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-shrink:0;
+  }
+  .dash-stepper button{
+    width:32px; height:32px;
+    border-radius:50%;
+    border:1.5px solid var(--gris);
+    background:var(--blanco);
+    font-size:1.1rem;
+    font-weight:700;
+    color:var(--azul);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    line-height:1;
+  }
+  .dash-stepper button:active{transform:scale(0.92);}
+  .dash-stepper .cantidad{min-width:20px; text-align:center; font-weight:700; font-size:1rem;}
+
+  /* ---------- RESUMEN SEMANAL ---------- */
+  .resumen-semana-fila{
+    margin-bottom:16px;
+  }
+  .resumen-semana-fila:last-child{margin-bottom:0;}
+  .resumen-semana-titulo{
+    display:flex;
+    justify-content:space-between;
+    font-size:0.88rem;
+    font-weight:600;
+    margin-bottom:6px;
+  }
+  .resumen-semana-titulo .porcentaje{color:var(--texto-suave); font-weight:700;}
+  .resumen-semana-barra{
+    height:10px;
+    background:#F0F0F0;
+    border-radius:20px;
+    overflow:hidden;
+  }
+  .resumen-semana-barra .relleno{
+    height:100%;
+    background:var(--teal);
+    border-radius:20px;
+    transition:width .3s ease;
+  }
+  .resumen-semana-nota{font-size:0.78rem; color:var(--texto-suave); margin-top:4px;}
+  .resumen-dias-animo{
+    display:flex;
+    gap:6px;
+    margin-top:4px;
+  }
+  .resumen-dia-animo{
+    flex:1;
+    height:28px;
+    border-radius:6px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:0.7rem;
+    color:var(--blanco);
+    font-weight:700;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ LOGIN ============ -->
+  <div id="vista-login">
+    <div class="logo-wrap">
+      <h1>AppDipo pacientes</h1>
+      <p>Seguimiento de adiposidad</p>
+    </div>
+    <div class="login-card">
+      <div class="campo">
+        <label for="loginDni">DNI</label>
+        <input type="text" inputmode="numeric" pattern="[0-9]*" id="loginDni" autocomplete="username" placeholder="Sin puntos, ej: 30123456">
+      </div>
+      <div class="campo">
+        <label for="loginPass">Contraseña</label>
+        <input type="password" id="loginPass" autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <button class="btn btn-primary" id="btnLogin">Ingresar</button>
+      <div class="error-msg" id="loginError"></div>
+    </div>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="vista-app">
+    <header class="top">
+      <button class="salir" id="btnSalir">Salir</button>
+      <div class="saludo">Hola,</div>
+      <h2 id="nombrePaciente">Paciente</h2>
+    </header>
+
+    <main>
+      <div class="tabs">
+        <div class="tab active" data-tab="registro">Hoy</div>
+        <div class="tab" data-tab="habitos">Hábitos de hoy</div>
+        <div class="tab" data-tab="resumen">Resumen semanal</div>
+        <div class="tab" data-tab="historial">Mi evolución</div>
+        <div class="tab" data-tab="ayuda">Ayuda</div>
+      </div>
+
+      <div class="banner-mensaje" id="bannerMensaje"></div>
+
+      <!-- ---- REGISTRO ---- -->
+      <div class="panel active" id="panel-registro">
+        <div class="card">
+          <h3>¿Cómo te sentís hoy?</h3>
+          <div class="animo-fila" id="animoFila"></div>
+          <div class="animo-leyenda" id="animoLeyenda">Tocá la carita que más se parece a como te sentís</div>
+        </div>
+
+        <div class="card">
+          <h3>Peso y medidas</h3>
+          <div class="campo">
+            <label>Peso</label>
+            <div class="unidad">
+              <input type="number" step="0.1" inputmode="decimal" id="inPeso" placeholder="0.0">
+              <span>kg</span>
+            </div>
+          </div>
+          <div class="grid2">
+            <div class="campo">
+              <label>Cintura</label>
+              <div class="unidad">
+                <input type="number" step="0.1" inputmode="decimal" id="inCintura" placeholder="0.0">
+                <span>cm</span>
+              </div>
+            </div>
+            <div class="campo">
+              <label>Cadera</label>
+              <div class="unidad">
+                <input type="number" step="0.1" inputmode="decimal" id="inCadera" placeholder="0.0">
+                <span>cm</span>
+              </div>
+            </div>
+            <div class="campo">
+              <label>Cuello</label>
+              <div class="unidad">
+                <input type="number" step="0.1" inputmode="decimal" id="inCuello" placeholder="0.0">
+                <span>cm</span>
+              </div>
+            </div>
+            <div class="campo">
+              <label>Brazo (opcional)</label>
+              <div class="unidad">
+                <input type="number" step="0.1" inputmode="decimal" id="inBrazo" placeholder="0.0">
+                <span>cm</span>
+              </div>
+            </div>
+          </div>
+          <div class="campo">
+            <label>Muslo (opcional)</label>
+            <div class="unidad">
+              <input type="number" step="0.1" inputmode="decimal" id="inMuslo" placeholder="0.0">
+              <span>cm</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Foto de progreso (opcional)</h3>
+          <div class="foto-zone" id="fotoZone">
+            📷 Tocá para agregar una foto<br>
+            <span class="campo-opcional-label">Solo si querés, de la manera que prefieras</span>
+          </div>
+          <input type="file" id="inputFoto" accept="image/*" capture="environment">
+          <img id="previewFoto" alt="Vista previa">
+        </div>
+
+        <div class="card">
+          <h3>Nota (opcional)</h3>
+          <textarea id="inNota" placeholder="¿Algo que quieras comentarle a tu médico/a?"></textarea>
+        </div>
+
+        <button class="btn btn-primary" id="btnGuardarRegistro">Guardar registro</button>
+      </div>
+
+      <!-- ---- HABITOS ---- -->
+      <div class="panel" id="panel-habitos">
+        <div class="card">
+          <h3>Resumen de hoy</h3>
+          <div class="resumen-item" id="resumenActividad">
+            <span class="resumen-icono">⏳</span>
+            <span>Cargando...</span>
+          </div>
+          <div class="resumen-alimentos" id="resumenAlimentos"></div>
+        </div>
+
+        <div class="card">
+          <h3>Actividad física</h3>
+          <div id="listaObjetivosActividad">
+            <div class="objetivo-vacio">Tu médico/a todavía no cargó objetivos de actividad.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Alimentación</h3>
+          <div id="listaObjetivosAlimentacion">
+            <div class="objetivo-vacio">Tu médico/a todavía no cargó objetivos de alimentación.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Alimentación DASH de hoy</h3>
+          <p class="campo-opcional-label" style="margin-bottom:12px;">Contá cuántas porciones comiste hoy de cada grupo. Los objetivos de proteínas y calcio los define tu médico/a; el resto son valores de referencia de la dieta DASH.</p>
+          <div id="listaAlimentacionDash"></div>
+        </div>
+
+        <div class="card">
+          <h3>Sueño y otros hábitos</h3>
+          <div class="campo">
+            <label>Horas dormidas anoche</label>
+            <div class="unidad">
+              <input type="number" step="0.5" min="0" max="24" inputmode="decimal" id="inSuenoHoras" placeholder="0">
+              <span>hs</span>
+            </div>
+          </div>
+          <div class="campo">
+            <label>Pasos de hoy</label>
+            <div class="unidad">
+              <input type="number" step="100" min="0" inputmode="numeric" id="inPasosHoy" placeholder="0">
+              <span>pasos</span>
+            </div>
+          </div>
+          <div class="campo">
+            <label>Uso de pantalla (celular y otros)</label>
+            <div class="unidad">
+              <input type="number" step="0.5" min="0" max="24" inputmode="decimal" id="inPantallaHoy" placeholder="0">
+              <span>hs</span>
+            </div>
+          </div>
+          <div class="campo" id="campoPausasActivas" style="display:none;">
+            <label>Pausas activas realizadas hoy</label>
+            <div class="unidad">
+              <input type="number" step="1" min="0" inputmode="numeric" id="inPausasHoy" placeholder="0">
+              <span>veces</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="btnGuardarHabitos">Guardar hábitos de hoy</button>
+      </div>
+
+      <!-- ---- RESUMEN SEMANAL ---- -->
+      <div class="panel" id="panel-resumen">
+        <div class="card" id="cardResumenAlimentacion">
+          <h3>Alimentación</h3>
+          <div class="vacio">Cargando...</div>
+        </div>
+        <div class="card" id="cardResumenActividad">
+          <h3>Actividad física</h3>
+          <div class="vacio">Cargando...</div>
+        </div>
+        <div class="card" id="cardResumenBienestar">
+          <h3>Bienestar (ánimo)</h3>
+          <div class="vacio">Cargando...</div>
+        </div>
+        <div class="card" id="cardResumenSueno">
+          <h3>Sueño y otros hábitos</h3>
+          <div class="vacio">Cargando...</div>
+        </div>
+      </div>
+
+      <!-- ---- HISTORIAL ---- -->
+      <div class="panel" id="panel-historial">
+        <div class="card">
+          <h3>Últimos registros</h3>
+          <div id="listaHistorial">
+            <div class="vacio">Cargando...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- AYUDA ---- -->
+      <div class="panel" id="panel-ayuda">
+        <div class="card">
+          <h3>Cómo usar AppDipo pacientes</h3>
+          <div class="ayuda-paso">
+            <div class="ayuda-num">1</div>
+            <div class="ayuda-txt">En <b>Hoy</b> cargá tu peso y medidas cuando tu médico/a te lo indique. La foto y la nota son opcionales.</div>
+          </div>
+          <div class="ayuda-paso">
+            <div class="ayuda-num">2</div>
+            <div class="ayuda-txt">En <b>Hábitos de hoy</b> marcá los objetivos que tu médico/a definió para vos. Podés actualizarlos durante el día.</div>
+          </div>
+          <div class="ayuda-paso">
+            <div class="ayuda-num">3</div>
+            <div class="ayuda-txt">En <b>Mi evolución</b> vas a ver tus últimos registros a medida que los vayas cargando.</div>
+          </div>
+          <div class="ayuda-paso">
+            <div class="ayuda-num">4</div>
+            <div class="ayuda-txt">Si te olvidás tu contraseña, pedile a tu médico/a que te genere una nueva desde su panel.</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══ CONFIGURACIÓN SUPABASE (mismo proyecto que URCyM) ═══
+const SUPABASE_URL = 'https://qdjzetylyojfjdottjrk.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_qe6L1Uc7mRwsen7lzZlllw_DzOXonwL';
+const { createClient } = supabase;
+// persistSession:false => cada vez que se abre la app pide login de nuevo,
+// así nunca queda "pegada" la sesión de un paciente anterior en este dispositivo.
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false }
+});
+
+// ═══ ESTADO ═══
+let usuarioActual = null;   // objeto de auth
+let pacienteActual = null;  // fila de appdipo_pacientes (incluye dni)
+let fotoBase64 = null;
+let animoSeleccionado = null;
+
+// ═══ ELEMENTOS ═══
+const vistaLogin = document.getElementById('vista-login');
+const vistaApp = document.getElementById('vista-app');
+const toast = document.getElementById('toast');
+
+function mostrarToast(msg, ok=true){
+  toast.textContent = msg;
+  toast.style.background = ok ? '#2B2B2B' : '#E25247';
+  toast.classList.add('show');
+  setTimeout(()=> toast.classList.remove('show'), 2600);
+}
+
+// ═══ ANIMO — Escala de Caritas (Andrews & Withey, 1976) ═══
+// 7 niveles, de 1 (Terrible) a 7 (Encantado/a). Caritas dibujadas en SVG (sin usar emojis
+// ni material con derechos): la boca, las cejas, los ojos y el color acompañan el ánimo.
+const ESCALA_CARITAS = [
+  { valor:1, etiqueta:'Terrible',                    curva:16 },
+  { valor:2, etiqueta:'Infeliz',                     curva:10 },
+  { valor:3, etiqueta:'Insatisfecho/a en general',   curva:5  },
+  { valor:4, etiqueta:'Mixto (ni conforme ni no)',   curva:0  },
+  { valor:5, etiqueta:'Contento/a en general',       curva:-5 },
+  { valor:6, etiqueta:'Muy contento/a',               curva:-10 },
+  { valor:7, etiqueta:'Encantado/a',                  curva:-16 }
+];
+
+// Colores: de coral (ánimo bajo) a un gris neutro (mixto) a teal (ánimo alto),
+// usando los mismos colores de marca de la app.
+function mezclarColor(c1, c2, t){
+  return [0,1,2].map(i => Math.round(c1[i] + (c2[i]-c1[i]) * t));
+}
+const RGB_CORAL = [226,82,71], RGB_GRIS = [156,163,175], RGB_TEAL = [77,188,190];
+function colorDeNivel(valor){
+  const t = (valor - 1) / 6; // 0 a 1
+  const rgb = t <= 0.5
+    ? mezclarColor(RGB_CORAL, RGB_GRIS, t / 0.5)
+    : mezclarColor(RGB_GRIS, RGB_TEAL, (t - 0.5) / 0.5);
+  return rgb;
+}
+
+function svgCarita(n){
+  const curva = n.curva;
+  const [r,g,b] = colorDeNivel(n.valor);
+  const color = `rgb(${r},${g},${b})`;
+  const fondo = `rgba(${r},${g},${b},0.07)`;
+
+  // Boca: control point por DEBAJO de las comisuras = sonrisa (valle);
+  // por ENCIMA = mueca triste (colina). curva>0 → triste, curva<0 → feliz.
+  const yControl = 24 - curva;
+
+  // Cejas: se inclinan hacia arriba en el centro cuando el ánimo es bajo
+  // (cejas de preocupación) y se relajan/levantan hacia afuera cuando es alto.
+  const inclinacion = curva * 0.35;
+  const cejaIzq = `<path d="M9 ${(12+inclinacion).toFixed(1)} L17 ${(12-inclinacion).toFixed(1)}" stroke="${color}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+  const cejaDer = `<path d="M31 ${(12+inclinacion).toFixed(1)} L23 ${(12-inclinacion).toFixed(1)}" stroke="${color}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+
+  // Ojos: puntos para el rango neutro/triste; para las dos caras más felices,
+  // ojos entrecerrados de alegría (arco hacia arriba), estilo "^ ^".
+  const ojosFelices = n.valor >= 6;
+  const ojos = ojosFelices
+    ? `<path d="M9.5 18 Q13 14 16.5 18" stroke="${color}" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+       <path d="M23.5 18 Q27 14 30.5 18" stroke="${color}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
+    : `<circle cx="13" cy="17" r="2.1" fill="${color}"/>
+       <circle cx="27" cy="17" r="2.1" fill="${color}"/>`;
+
+  // Mejillas rosadas solo para las caras más alegres.
+  const mejillas = n.valor >= 6
+    ? `<circle cx="9" cy="23" r="2.6" fill="${color}" opacity="0.25"/>
+       <circle cx="31" cy="23" r="2.6" fill="${color}" opacity="0.25"/>`
+    : '';
+
+  return `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="20" cy="20" r="18" fill="${fondo}" stroke="${color}" stroke-width="2.5"/>
+    ${mejillas}
+    ${ojos}
+    ${cejaIzq}
+    ${cejaDer}
+    <path d="M10 24 Q20 ${yControl} 30 24" stroke="${color}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  </svg>`;
+}
+
+const animoFilaEl = document.getElementById('animoFila');
+const animoLeyendaEl = document.getElementById('animoLeyenda');
+animoFilaEl.innerHTML = ESCALA_CARITAS.map(n => `
+  <button type="button" class="animo-btn" data-animo="${n.valor}" data-etiqueta="${n.etiqueta}" aria-label="${n.etiqueta}">
+    ${svgCarita(n)}
+  </button>
+`).join('');
+
+// Guardamos el color de cada carita en el propio botón (para el estado seleccionado).
+document.querySelectorAll('.animo-btn').forEach(btn=>{
+  const nivel = ESCALA_CARITAS.find(n => n.valor === parseInt(btn.dataset.animo, 10));
+  const [r,g,b] = colorDeNivel(nivel.valor);
+  btn.style.setProperty('--mood-color', `rgb(${r},${g},${b})`);
+  btn.style.setProperty('--mood-bg', `rgba(${r},${g},${b},0.12)`);
+
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.animo-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    animoSeleccionado = parseInt(btn.dataset.animo, 10);
+    animoLeyendaEl.textContent = btn.dataset.etiqueta;
+    animoLeyendaEl.style.color = `rgb(${r},${g},${b})`;
+    animoLeyendaEl.classList.add('tiene-seleccion');
+  });
+});
+
+function resetAnimo(){
+  animoSeleccionado = null;
+  document.querySelectorAll('.animo-btn').forEach(b=>b.classList.remove('selected'));
+  animoLeyendaEl.textContent = 'Tocá la carita que más se parece a como te sentís';
+  animoLeyendaEl.classList.remove('tiene-seleccion');
+  animoLeyendaEl.style.color = '';
+}
+
+// ═══ MENSAJE DEL PROFESIONAL ═══
+async function cargarMensaje(){
+  const { data } = await sb.from('appdipo_mensajes').select('mensaje').eq('id', 1).maybeSingle();
+  const banner = document.getElementById('bannerMensaje');
+  if(data && data.mensaje){
+    banner.textContent = data.mensaje;
+    banner.classList.add('show');
+  } else {
+    banner.classList.remove('show');
+  }
+}
+
+// ═══ LOGIN ═══
+document.getElementById('btnLogin').addEventListener('click', hacerLogin);
+document.getElementById('loginPass').addEventListener('keydown', e=>{
+  if(e.key === 'Enter') hacerLogin();
+});
+
+async function hacerLogin(){
+  const dni = document.getElementById('loginDni').value.trim().replace(/\D/g, '');
+  const pass = document.getElementById('loginPass').value;
+  const errBox = document.getElementById('loginError');
+  errBox.style.display = 'none';
+
+  if(!dni || !pass){
+    errBox.textContent = 'Completá DNI y contraseña.';
+    errBox.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('btnLogin');
+  btn.disabled = true;
+  btn.textContent = 'Ingresando...';
+
+  try{
+    // El DNI se traduce a un email interno; el paciente nunca lo ve
+    const email = `${dni}@appdipo.local`;
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+
+    if(error){
+      errBox.textContent = 'Email o contraseña incorrectos.';
+      errBox.style.display = 'block';
+      return;
+    }
+
+    usuarioActual = data.user;
+    await cargarPaciente();
+  }catch(e){
+    console.error(e);
+    errBox.textContent = 'No se pudo conectar. Revisá tu conexión a internet y probá de nuevo.';
+    errBox.style.display = 'block';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = 'Ingresar';
+  }
+}
+
+async function cargarPaciente(){
+  try{
+    const { data, error } = await sb
+      .from('appdipo_pacientes')
+      .select('*, pacientes(nombre, apellido)')
+      .eq('user_id', usuarioActual.id)
+      .maybeSingle();
+
+    if(error || !data){
+      document.getElementById('loginError').textContent = 'Tu cuenta todavía no está vinculada a un paciente. Contactá a tu médico/a.';
+      document.getElementById('loginError').style.display = 'block';
+      await sb.auth.signOut();
+      return;
+    }
+
+    pacienteActual = data;
+    const nombre = data.pacientes ? `${data.pacientes.nombre || ''}`.trim() : '';
+    document.getElementById('nombrePaciente').textContent = nombre || 'Paciente';
+
+    vistaLogin.style.display = 'none';
+    vistaApp.style.display = 'flex';
+
+    cargarMensaje();
+    cargarHistorial();
+  }catch(e){
+    console.error(e);
+    const errBox = document.getElementById('loginError');
+    errBox.textContent = 'No se pudo conectar. Revisá tu conexión a internet y probá de nuevo.';
+    errBox.style.display = 'block';
+  }
+}
+
+document.getElementById('btnSalir').addEventListener('click', async ()=>{
+  // Primero volvemos a la pantalla de login localmente: así el botón
+  // "Salir" siempre responde, aunque falle la conexión con el servidor.
+  usuarioActual = null;
+  pacienteActual = null;
+  vistaApp.style.display = 'none';
+  vistaLogin.style.display = 'flex';
+  document.getElementById('loginDni').value = '';
+  document.getElementById('loginPass').value = '';
+
+  try{
+    await sb.auth.signOut();
+  }catch(e){
+    console.error('No se pudo cerrar sesión en el servidor, pero se cerró localmente.', e);
+  }
+});
+
+// ═══ TABS ═══
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+    if(tab.dataset.tab === 'historial') cargarHistorial();
+    if(tab.dataset.tab === 'habitos') cargarPanelHabitos();
+    if(tab.dataset.tab === 'resumen') cargarResumenSemanal();
+  });
+});
+
+// ═══ FOTO ═══
+const fotoZone = document.getElementById('fotoZone');
+const inputFoto = document.getElementById('inputFoto');
+const previewFoto = document.getElementById('previewFoto');
+
+fotoZone.addEventListener('click', ()=> inputFoto.click());
+
+inputFoto.addEventListener('change', ()=>{
+  const file = inputFoto.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{
+    fotoBase64 = e.target.result;
+    previewFoto.src = fotoBase64;
+    previewFoto.style.display = 'block';
+    fotoZone.classList.add('tiene-foto');
+    fotoZone.innerHTML = '✅ Foto lista — tocá para cambiarla';
+  };
+  reader.readAsDataURL(file);
+});
+
+// ═══ GUARDAR REGISTRO ═══
+document.getElementById('btnGuardarRegistro').addEventListener('click', guardarRegistro);
+
+async function guardarRegistro(){
+  if(!pacienteActual) return;
+
+  const peso = document.getElementById('inPeso').value;
+  const cintura = document.getElementById('inCintura').value;
+  const cadera = document.getElementById('inCadera').value;
+  const cuello = document.getElementById('inCuello').value;
+  const brazo = document.getElementById('inBrazo').value;
+  const muslo = document.getElementById('inMuslo').value;
+  const nota = document.getElementById('inNota').value.trim();
+
+  if(!peso && !cintura && !cadera && !cuello && !brazo && !muslo){
+    mostrarToast('Cargá al menos un dato para guardar.', false);
+    return;
+  }
+
+  const btn = document.getElementById('btnGuardarRegistro');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  let foto_url = null;
+
+  // Si hay foto, subirla a Storage (bucket 'appdipo-fotos')
+  if(fotoBase64){
+    try{
+      const blob = await (await fetch(fotoBase64)).blob();
+      const nombreArchivo = `${pacienteActual.dni}/${Date.now()}.jpg`;
+      const { error: errUpload } = await sb.storage
+        .from('appdipo-fotos')
+        .upload(nombreArchivo, blob, { contentType: 'image/jpeg' });
+      if(!errUpload){
+        const { data: urlData } = sb.storage.from('appdipo-fotos').getPublicUrl(nombreArchivo);
+        foto_url = urlData.publicUrl;
+      }
+    }catch(e){
+      console.warn('No se pudo subir la foto, se guarda el registro igual.', e);
+    }
+  }
+
+  const payload = {
+    dni: pacienteActual.dni,
+    peso_kg: peso ? parseFloat(peso) : null,
+    cintura_cm: cintura ? parseFloat(cintura) : null,
+    cadera_cm: cadera ? parseFloat(cadera) : null,
+    cuello_cm: cuello ? parseFloat(cuello) : null,
+    brazo_cm: brazo ? parseFloat(brazo) : null,
+    muslo_cm: muslo ? parseFloat(muslo) : null,
+    nota: nota || null,
+    foto_url: foto_url,
+    animo: animoSeleccionado,
+    cargado_por: 'paciente'
+  };
+
+  const { error } = await sb.from('appdipo_registros').insert([payload]);
+
+  btn.disabled = false;
+  btn.textContent = 'Guardar registro';
+
+  if(error){
+    console.error(error);
+    mostrarToast('Hubo un error al guardar. Probá de nuevo.', false);
+    return;
+  }
+
+  mostrarToast('Registro guardado ✓');
+  // limpiar formulario
+  ['inPeso','inCintura','inCadera','inCuello','inBrazo','inMuslo','inNota'].forEach(id=>{
+    document.getElementById(id).value = '';
+  });
+  fotoBase64 = null;
+  previewFoto.style.display = 'none';
+  fotoZone.classList.remove('tiene-foto');
+  fotoZone.innerHTML = '📷 Tocá para agregar una foto<br><span class="campo-opcional-label">Solo si querés, de la manera que prefieras</span>';
+  resetAnimo();
+}
+
+// ═══ HABITOS DINÁMICOS (objetivos cargados por el profesional) ═══
+const ETIQUETAS_ALIMENTACION = {
+  frutas: 'Frutas',
+  verduras: 'Verduras',
+  calcio: 'Calcio',
+  proteinas: 'Proteínas',
+  frutos_secos: 'Frutos secos',
+  agua: 'Agua',
+  legumbres: 'Legumbres'
+};
+
+function actualizarResumenHabitos(){
+  const chksActividad = document.querySelectorAll('.chk-objetivo[data-tipo="actividad"]');
+  const elAct = document.getElementById('resumenActividad');
+  if(!chksActividad.length){
+    elAct.innerHTML = `<span class="resumen-icono">—</span><span>Todavía no tenés objetivos de actividad cargados.</span>`;
+  } else {
+    const cumplidos = Array.from(chksActividad).filter(c => c.checked).length;
+    if(cumplidos === chksActividad.length){
+      elAct.innerHTML = `<span class="resumen-icono">✅</span><span>¡Cumpliste tu objetivo de actividad de hoy!</span>`;
+    } else {
+      elAct.innerHTML = `<span class="resumen-icono">⏳</span><span>Actividad: ${cumplidos}/${chksActividad.length} objetivos cumplidos hoy</span>`;
+    }
+  }
+
+  const chksAlim = document.querySelectorAll('.chk-objetivo[data-tipo="alimentacion"]');
+  const contAlim = document.getElementById('resumenAlimentos');
+  contAlim.innerHTML = Array.from(chksAlim).map(c=>{
+    const label = ETIQUETAS_ALIMENTACION[c.dataset.key] || c.dataset.key;
+    return `<span class="resumen-chip ${c.checked ? 'on' : ''}">${c.checked ? '✓' : '○'} ${label}</span>`;
+  }).join('');
+}
+
+document.addEventListener('change', e=>{
+  if(e.target.classList.contains('chk-objetivo')) actualizarResumenHabitos();
+});
+
+// ═══ ALIMENTACIÓN DASH (porciones consumidas hoy) ═══
+// Objetivos de proteínas y calcio: los define el profesional (pacienteActual.objetivo_*).
+// El resto son valores de referencia general de la dieta DASH.
+const CATALOGO_DASH = [
+  { key:'granos',                  nombre:'Granos integrales',       objetivoDefault:6 },
+  { key:'verduras',                nombre:'Verduras',                objetivoDefault:4 },
+  { key:'frutas',                  nombre:'Frutas',                  objetivoDefault:4 },
+  { key:'calcio',                  nombre:'Lácteos / calcio',        objetivoDefault:2.5 },
+  { key:'proteinas',               nombre:'Proteínas',               objetivoDefault:3 },
+  { key:'frutos_secos_legumbres',  nombre:'Frutos secos y legumbres',objetivoDefault:1 },
+  { key:'huevo',                   nombre:'Huevo',                   objetivoDefault:null },
+];
+let estadoDash = {};
+
+function obtenerObjetivoDash(key){
+  if(key === 'proteinas') return pacienteActual?.objetivo_proteinas_porciones ?? null;
+  if(key === 'calcio') return pacienteActual?.objetivo_calcio_porciones ?? null;
+  const item = CATALOGO_DASH.find(i => i.key === key);
+  return item ? item.objetivoDefault : null;
+}
+
+function renderizarListaDash(){
+  const cont = document.getElementById('listaAlimentacionDash');
+  cont.innerHTML = CATALOGO_DASH.map(item=>{
+    const cantidad = estadoDash[item.key] || 0;
+    const objetivo = obtenerObjetivoDash(item.key);
+    const cumplido = objetivo != null && cantidad >= objetivo;
+    const metaTexto = objetivo != null ? `Objetivo: ${objetivo} porciones/día` : 'Se registra sin objetivo fijo';
+    return `<div class="dash-item">
+      <div class="dash-info">
+        <div class="nombre">${item.nombre}</div>
+        <div class="meta ${cumplido ? 'cumplido' : ''}">${metaTexto}${cumplido ? ' ✓' : ''}</div>
+      </div>
+      <div class="dash-stepper">
+        <button type="button" data-accion="restar" data-key="${item.key}" aria-label="Restar porción">–</button>
+        <span class="cantidad">${cantidad}</span>
+        <button type="button" data-accion="sumar" data-key="${item.key}" aria-label="Sumar porción">+</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.addEventListener('click', e=>{
+  const btn = e.target.closest('.dash-stepper button');
+  if(!btn) return;
+  const key = btn.dataset.key;
+  const delta = btn.dataset.accion === 'sumar' ? 1 : -1;
+  estadoDash[key] = Math.max(0, (estadoDash[key] || 0) + delta);
+  renderizarListaDash();
+});
+
+function renderizarListaObjetivos(contenedorId, objetivos){
+  const cont = document.getElementById(contenedorId);
+  if(!objetivos || objetivos.length === 0){
+    cont.innerHTML = `<div class="objetivo-vacio">Tu médico/a todavía no cargó objetivos acá.</div>`;
+    return;
+  }
+  cont.innerHTML = objetivos.map(obj=>`
+    <div class="habito-item">
+      <span class="nombre">${obj.label}</span>
+      <label class="switch">
+        <input type="checkbox" class="chk-objetivo" data-tipo="${contenedorId === 'listaObjetivosActividad' ? 'actividad' : 'alimentacion'}" data-key="${obj.key}">
+        <span class="slider"></span>
+      </label>
+    </div>
+  `).join('');
+}
+
+async function cargarPanelHabitos(){
+  if(!pacienteActual) return;
+
+  // Traemos los objetivos más recientes por si el profesional los cargó
+  // después de que el paciente inició sesión.
+  const { data: actualizado } = await sb
+    .from('appdipo_pacientes')
+    .select(`
+      objetivos_actividad, objetivos_alimentacion,
+      objetivo_proteinas_porciones, objetivo_calcio_porciones,
+      objetivo_sueno_horas, objetivo_pasos_diarios, objetivo_pantalla_horas_max,
+      objetivo_pausas_activas, objetivo_pausas_activas_veces
+    `)
+    .eq('dni', pacienteActual.dni)
+    .maybeSingle();
+
+  if(actualizado){
+    Object.assign(pacienteActual, actualizado);
+  }
+
+  renderizarListaObjetivos('listaObjetivosActividad', pacienteActual.objetivos_actividad);
+  renderizarListaObjetivos('listaObjetivosAlimentacion', pacienteActual.objetivos_alimentacion);
+
+  document.getElementById('campoPausasActivas').style.display = pacienteActual.objetivo_pausas_activas ? 'block' : 'none';
+
+  // Si ya cargó hábitos hoy, pre-marcamos todo lo que ya había cargado
+  const hoy = new Date().toISOString().slice(0,10);
+  const { data } = await sb
+    .from('appdipo_habitos')
+    .select('actividad_json, alimentacion_json, alimentacion_dash_json, sueno_horas, pasos, pantalla_horas, pausas_activas_realizadas')
+    .eq('dni', pacienteActual.dni)
+    .eq('fecha', hoy)
+    .maybeSingle();
+
+  if(data){
+    document.querySelectorAll('.chk-objetivo').forEach(chk=>{
+      const fuente = chk.dataset.tipo === 'actividad' ? data.actividad_json : data.alimentacion_json;
+      if(fuente && fuente[chk.dataset.key]) chk.checked = true;
+    });
+    estadoDash = data.alimentacion_dash_json || {};
+    document.getElementById('inSuenoHoras').value = data.sueno_horas ?? '';
+    document.getElementById('inPasosHoy').value = data.pasos ?? '';
+    document.getElementById('inPantallaHoy').value = data.pantalla_horas ?? '';
+    document.getElementById('inPausasHoy').value = data.pausas_activas_realizadas ?? '';
+  } else {
+    estadoDash = {};
+    document.getElementById('inSuenoHoras').value = '';
+    document.getElementById('inPasosHoy').value = '';
+    document.getElementById('inPantallaHoy').value = '';
+    document.getElementById('inPausasHoy').value = '';
+  }
+
+  renderizarListaDash();
+  actualizarResumenHabitos();
+}
+
+// ═══ GUARDAR HABITOS ═══
+document.getElementById('btnGuardarHabitos').addEventListener('click', guardarHabitos);
+
+async function guardarHabitos(){
+  if(!pacienteActual) return;
+
+  const actividad_json = {};
+  const alimentacion_json = {};
+  document.querySelectorAll('.chk-objetivo').forEach(chk=>{
+    if(chk.dataset.tipo === 'actividad') actividad_json[chk.dataset.key] = chk.checked;
+    else alimentacion_json[chk.dataset.key] = chk.checked;
+  });
+
+  const sueno_horas = parseFloat(document.getElementById('inSuenoHoras').value) || null;
+  const pasos = parseInt(document.getElementById('inPasosHoy').value, 10) || null;
+  const pantalla_horas = parseFloat(document.getElementById('inPantallaHoy').value) || null;
+  const pausas_activas_realizadas = pacienteActual.objetivo_pausas_activas
+    ? (parseInt(document.getElementById('inPausasHoy').value, 10) || null)
+    : null;
+
+  const hoy = new Date().toISOString().slice(0,10);
+
+  const btn = document.getElementById('btnGuardarHabitos');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  const camposComunes = {
+    actividad_json, alimentacion_json,
+    alimentacion_dash_json: estadoDash,
+    sueno_horas, pasos, pantalla_horas, pausas_activas_realizadas
+  };
+
+  // upsert manual: buscamos si ya existe un registro de hábitos para hoy
+  const { data: existente } = await sb
+    .from('appdipo_habitos')
+    .select('id')
+    .eq('dni', pacienteActual.dni)
+    .eq('fecha', hoy)
+    .maybeSingle();
+
+  let error;
+  if(existente){
+    ({ error } = await sb.from('appdipo_habitos')
+      .update(camposComunes)
+      .eq('id', existente.id));
+  } else {
+    ({ error } = await sb.from('appdipo_habitos')
+      .insert([{ dni: pacienteActual.dni, fecha: hoy, ...camposComunes }]));
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Guardar hábitos de hoy';
+
+  if(error){
+    console.error(error);
+    mostrarToast('Hubo un error al guardar. Probá de nuevo.', false);
+    return;
+  }
+
+  mostrarToast('¡Hábitos guardados! Seguí así 💪');
+}
+
+// ═══ RESUMEN SEMANAL ═══
+async function cargarResumenSemanal(){
+  if(!pacienteActual) return;
+  const dni = pacienteActual.dni;
+
+  const hoy = new Date();
+  const hace6 = new Date(hoy);
+  hace6.setDate(hoy.getDate() - 6);
+  const desde = hace6.toISOString().slice(0,10);
+
+  const [{ data: habitos, error: errHabitos }, { data: registros, error: errRegistros }] = await Promise.all([
+    sb.from('appdipo_habitos').select('*').eq('dni', dni).gte('fecha', desde).order('fecha', { ascending: true }),
+    sb.from('appdipo_registros').select('fecha, animo').eq('dni', dni).gte('fecha', desde).order('fecha', { ascending: true })
+  ]);
+
+  if(errHabitos || errRegistros){
+    console.error(errHabitos || errRegistros);
+  }
+
+  renderizarResumenAlimentacion(habitos || []);
+  renderizarResumenActividad(habitos || []);
+  renderizarResumenBienestar(registros || []);
+  renderizarResumenSueno(habitos || []);
+}
+
+function filaResumen(titulo, porcentaje, nota){
+  const pct = Math.round(Math.max(0, Math.min(100, porcentaje)));
+  return `<div class="resumen-semana-fila">
+    <div class="resumen-semana-titulo"><span>${titulo}</span><span class="porcentaje">${pct}%</span></div>
+    <div class="resumen-semana-barra"><div class="relleno" style="width:${pct}%"></div></div>
+    ${nota ? `<div class="resumen-semana-nota">${nota}</div>` : ''}
+  </div>`;
+}
+
+function renderizarResumenAlimentacion(habitos){
+  const cont = document.getElementById('cardResumenAlimentacion');
+  const conDatos = habitos.filter(h => h.alimentacion_dash_json);
+  if(!conDatos.length){
+    cont.innerHTML = '<h3>Alimentación</h3><div class="vacio">Todavía no cargaste alimentación DASH esta semana.</div>';
+    return;
+  }
+
+  const categoriasConObjetivo = CATALOGO_DASH.filter(c => c.key !== 'huevo');
+  let filasHtml = '';
+  let sumaPromedios = 0;
+
+  categoriasConObjetivo.forEach(cat=>{
+    const objetivo = obtenerObjetivoDash(cat.key);
+    if(objetivo == null) return;
+    const diasCumplidos = conDatos.filter(h => (h.alimentacion_dash_json[cat.key] || 0) >= objetivo).length;
+    const pct = (diasCumplidos / conDatos.length) * 100;
+    sumaPromedios += pct;
+    filasHtml += filaResumen(cat.nombre, pct, `${diasCumplidos} de ${conDatos.length} días cumpliste el objetivo`);
+  });
+
+  const huevoTotal = conDatos.reduce((acc,h) => acc + (h.alimentacion_dash_json.huevo || 0), 0);
+  const promedioGeneral = sumaPromedios / categoriasConObjetivo.length;
+
+  cont.innerHTML = `<h3>Alimentación</h3>
+    ${filaResumen('Promedio general de la semana', promedioGeneral, null)}
+    ${filasHtml}
+    <div class="resumen-semana-nota" style="margin-top:6px;">🥚 Huevo: ${huevoTotal} porciones cargadas esta semana</div>`;
+}
+
+function renderizarResumenActividad(habitos){
+  const cont = document.getElementById('cardResumenActividad');
+  const objetivos = pacienteActual.objetivos_actividad || [];
+  const conDatos = habitos.filter(h => h.actividad_json);
+
+  if(!objetivos.length){
+    cont.innerHTML = '<h3>Actividad física</h3><div class="vacio">Tu médico/a todavía no cargó objetivos de actividad.</div>';
+    return;
+  }
+  if(!conDatos.length){
+    cont.innerHTML = '<h3>Actividad física</h3><div class="vacio">Todavía no marcaste actividad esta semana.</div>';
+    return;
+  }
+
+  const porcentajesPorDia = conDatos.map(h=>{
+    const cumplidos = objetivos.filter(o => h.actividad_json[o.key]).length;
+    return (cumplidos / objetivos.length) * 100;
+  });
+  const promedio = porcentajesPorDia.reduce((a,b)=>a+b, 0) / porcentajesPorDia.length;
+  const diasCompletos = porcentajesPorDia.filter(p => p === 100).length;
+
+  cont.innerHTML = `<h3>Actividad física</h3>
+    ${filaResumen('Cumplimiento promedio de objetivos', promedio, `${diasCompletos} de ${conDatos.length} días con todos los objetivos cumplidos`)}`;
+}
+
+function renderizarResumenBienestar(registros){
+  const cont = document.getElementById('cardResumenBienestar');
+  const conAnimo = registros.filter(r => r.animo != null);
+
+  if(!conAnimo.length){
+    cont.innerHTML = '<h3>Bienestar (ánimo)</h3><div class="vacio">Todavía no cargaste tu ánimo esta semana.</div>';
+    return;
+  }
+
+  const promedio = conAnimo.reduce((a,r)=> a + r.animo, 0) / conAnimo.length;
+  const nivelPromedio = ESCALA_CARITAS.find(n => n.valor === Math.round(promedio)) || ESCALA_CARITAS[3];
+
+  const chips = conAnimo.map(r=>{
+    const [rr,gg,bb] = colorDeNivel(r.animo);
+    const fecha = new Date(r.fecha).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit' });
+    return `<div class="resumen-dia-animo" style="background:rgb(${rr},${gg},${bb});" title="${fecha}">${r.animo}</div>`;
+  }).join('');
+
+  cont.innerHTML = `<h3>Bienestar (ánimo)</h3>
+    <div class="resumen-item" style="padding-top:0;">
+      <span class="resumen-icono">🙂</span>
+      <span>Promedio de la semana: <b>${promedio.toFixed(1)} / 7</b> (${nivelPromedio.etiqueta})</span>
+    </div>
+    <div class="resumen-dias-animo">${chips}</div>
+    <div class="resumen-semana-nota">Cada número es el ánimo cargado ese día (1 = Terrible, 7 = Encantado/a).</div>`;
+}
+
+function renderizarResumenSueno(habitos){
+  const cont = document.getElementById('cardResumenSueno');
+
+  const conSueno = habitos.filter(h => h.sueno_horas != null);
+  const conPasos = habitos.filter(h => h.pasos != null);
+  const conPantalla = habitos.filter(h => h.pantalla_horas != null);
+  const conPausas = habitos.filter(h => h.pausas_activas_realizadas != null);
+
+  if(!conSueno.length && !conPasos.length && !conPantalla.length && !conPausas.length){
+    cont.innerHTML = '<h3>Sueño y otros hábitos</h3><div class="vacio">Todavía no cargaste estos datos esta semana.</div>';
+    return;
+  }
+
+  let html = '<h3>Sueño y otros hábitos</h3>';
+
+  if(conSueno.length){
+    const promedio = conSueno.reduce((a,h)=> a + h.sueno_horas, 0) / conSueno.length;
+    const objetivo = pacienteActual.objetivo_sueno_horas;
+    const nota = objetivo
+      ? `Promedio: ${promedio.toFixed(1)} hs — objetivo: ${objetivo} hs/noche`
+      : `Promedio: ${promedio.toFixed(1)} hs por noche`;
+    const pct = objetivo ? (promedio / objetivo) * 100 : 100;
+    html += filaResumen('Sueño', pct, nota);
+  }
+
+  if(conPasos.length){
+    const promedio = Math.round(conPasos.reduce((a,h)=> a + h.pasos, 0) / conPasos.length);
+    const objetivo = pacienteActual.objetivo_pasos_diarios;
+    const nota = objetivo
+      ? `Promedio: ${promedio.toLocaleString('es-AR')} pasos — objetivo: ${objetivo.toLocaleString('es-AR')} pasos/día`
+      : `Promedio: ${promedio.toLocaleString('es-AR')} pasos por día`;
+    const pct = objetivo ? (promedio / objetivo) * 100 : 100;
+    html += filaResumen('Pasos diarios', pct, nota);
+  }
+
+  if(conPantalla.length){
+    const promedio = conPantalla.reduce((a,h)=> a + h.pantalla_horas, 0) / conPantalla.length;
+    const objetivo = pacienteActual.objetivo_pantalla_horas_max;
+    // Acá "cumplir" es quedarse POR DEBAJO del máximo, así que invertimos la lógica del %.
+    const pct = objetivo ? Math.max(0, 100 - ((promedio - objetivo) / objetivo) * 100) : 100;
+    const nota = objetivo
+      ? `Promedio: ${promedio.toFixed(1)} hs/día — máximo sugerido: ${objetivo} hs/día`
+      : `Promedio: ${promedio.toFixed(1)} hs de pantalla por día`;
+    html += filaResumen('Uso de pantalla', pct, nota);
+  }
+
+  if(pacienteActual.objetivo_pausas_activas && conPausas.length){
+    const promedio = conPausas.reduce((a,h)=> a + h.pausas_activas_realizadas, 0) / conPausas.length;
+    const objetivo = pacienteActual.objetivo_pausas_activas_veces;
+    const pct = objetivo ? (promedio / objetivo) * 100 : 100;
+    const nota = objetivo
+      ? `Promedio: ${promedio.toFixed(1)} veces/día — objetivo: ${objetivo} veces/día`
+      : `Promedio: ${promedio.toFixed(1)} pausas activas por día`;
+    html += filaResumen('Pausas activas', pct, nota);
+  }
+
+  cont.innerHTML = html;
+}
+
+// ═══ HISTORIAL ═══
+async function cargarHistorial(){
+  if(!pacienteActual) return;
+  const cont = document.getElementById('listaHistorial');
+  cont.innerHTML = '<div class="vacio">Cargando...</div>';
+
+  const { data, error } = await sb
+    .from('appdipo_registros')
+    .select('*')
+    .eq('dni', pacienteActual.dni)
+    .order('fecha', { ascending: false })
+    .limit(20);
+
+  if(error){
+    cont.innerHTML = '<div class="vacio">No se pudo cargar el historial.</div>';
+    return;
+  }
+
+  if(!data || data.length === 0){
+    cont.innerHTML = '<div class="vacio">Todavía no cargaste registros. ¡Empezá con el primero!</div>';
+    return;
+  }
+
+  cont.innerHTML = data.map(r=>{
+    const fecha = new Date(r.fecha).toLocaleDateString('es-AR', { day:'2-digit', month:'short', year:'numeric' });
+    const peso = r.peso_kg ? `${r.peso_kg} kg` : '—';
+    return `<div class="historial-item">
+      <div>
+        <div class="fecha">${fecha}</div>
+        ${r.cintura_cm ? `<div class="fecha">Cintura: ${r.cintura_cm} cm</div>` : ''}
+      </div>
+      <div class="peso">${peso}</div>
+    </div>`;
+  }).join('');
+}
+
+// Nota: la sesión ya no se persiste entre aperturas de la app
+// (ver persistSession:false más arriba), así que cada apertura
+// siempre arranca mostrando la pantalla de login.
+</script>
+</body>
+</html>
