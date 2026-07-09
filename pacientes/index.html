@@ -341,19 +341,24 @@
   }
   .animo-btn{
     flex:1;
-    background:none;
+    background:var(--blanco);
     border:1.5px solid var(--gris);
-    border-radius:10px;
-    padding:8px 2px;
+    border-radius:12px;
+    padding:8px 2px 6px;
     cursor:pointer;
-    transition:.15s;
-    color:var(--texto-suave);
+    transition:transform .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease;
     display:flex;
     align-items:center;
     justify-content:center;
   }
-  .animo-btn svg{width:100%; height:auto; max-width:30px; display:block;}
-  .animo-btn.selected{border-color:var(--teal); background:#EAF7F6; color:var(--teal); transform:scale(1.05);}
+  .animo-btn svg{width:100%; height:auto; max-width:34px; display:block;}
+  .animo-btn:active{transform:scale(0.94);}
+  .animo-btn.selected{
+    border-color:var(--mood-color, var(--teal));
+    background:var(--mood-bg, #EAF7F6);
+    box-shadow:0 3px 10px rgba(0,0,0,0.08);
+    transform:scale(1.08);
+  }
   .animo-leyenda{
     text-align:center;
     font-size:0.85rem;
@@ -607,7 +612,7 @@ function mostrarToast(msg, ok=true){
 
 // ═══ ANIMO — Escala de Caritas (Andrews & Withey, 1976) ═══
 // 7 niveles, de 1 (Terrible) a 7 (Encantado/a). Caritas dibujadas en SVG (sin usar emojis
-// ni material con derechos), variando solo la curva de la boca y las cejas.
+// ni material con derechos): la boca, las cejas, los ojos y el color acompañan el ánimo.
 const ESCALA_CARITAS = [
   { valor:1, etiqueta:'Terrible',                    curva:16 },
   { valor:2, etiqueta:'Infeliz',                     curva:10 },
@@ -618,20 +623,58 @@ const ESCALA_CARITAS = [
   { valor:7, etiqueta:'Encantado/a',                  curva:-16 }
 ];
 
-function svgCarita(curva){
-  const yControl = 24 + curva;
-  // Las cejas siguen la misma curva que la boca de forma continua y proporcional
-  // (antes se quitaban del todo en las caras más felices, por eso se veían "sin cejas").
-  const browY = 12 + curva * 0.45;
-  const ceja = `
-    <path d="M9 12 Q13 ${browY.toFixed(1)} 17 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
-    <path d="M23 12 Q27 ${browY.toFixed(1)} 31 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+// Colores: de coral (ánimo bajo) a un gris neutro (mixto) a teal (ánimo alto),
+// usando los mismos colores de marca de la app.
+function mezclarColor(c1, c2, t){
+  return [0,1,2].map(i => Math.round(c1[i] + (c2[i]-c1[i]) * t));
+}
+const RGB_CORAL = [226,82,71], RGB_GRIS = [156,163,175], RGB_TEAL = [77,188,190];
+function colorDeNivel(valor){
+  const t = (valor - 1) / 6; // 0 a 1
+  const rgb = t <= 0.5
+    ? mezclarColor(RGB_CORAL, RGB_GRIS, t / 0.5)
+    : mezclarColor(RGB_GRIS, RGB_TEAL, (t - 0.5) / 0.5);
+  return rgb;
+}
+
+function svgCarita(n){
+  const curva = n.curva;
+  const [r,g,b] = colorDeNivel(n.valor);
+  const color = `rgb(${r},${g},${b})`;
+  const fondo = `rgba(${r},${g},${b},0.07)`;
+
+  // Boca: control point por DEBAJO de las comisuras = sonrisa (valle);
+  // por ENCIMA = mueca triste (colina). curva>0 → triste, curva<0 → feliz.
+  const yControl = 24 - curva;
+
+  // Cejas: se inclinan hacia arriba en el centro cuando el ánimo es bajo
+  // (cejas de preocupación) y se relajan/levantan hacia afuera cuando es alto.
+  const inclinacion = curva * 0.35;
+  const cejaIzq = `<path d="M9 ${(12+inclinacion).toFixed(1)} L17 ${(12-inclinacion).toFixed(1)}" stroke="${color}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+  const cejaDer = `<path d="M31 ${(12+inclinacion).toFixed(1)} L23 ${(12-inclinacion).toFixed(1)}" stroke="${color}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+
+  // Ojos: puntos para el rango neutro/triste; para las dos caras más felices,
+  // ojos entrecerrados de alegría (arco hacia arriba), estilo "^ ^".
+  const ojosFelices = n.valor >= 6;
+  const ojos = ojosFelices
+    ? `<path d="M9.5 18 Q13 14 16.5 18" stroke="${color}" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+       <path d="M23.5 18 Q27 14 30.5 18" stroke="${color}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
+    : `<circle cx="13" cy="17" r="2.1" fill="${color}"/>
+       <circle cx="27" cy="17" r="2.1" fill="${color}"/>`;
+
+  // Mejillas rosadas solo para las caras más alegres.
+  const mejillas = n.valor >= 6
+    ? `<circle cx="9" cy="23" r="2.6" fill="${color}" opacity="0.25"/>
+       <circle cx="31" cy="23" r="2.6" fill="${color}" opacity="0.25"/>`
+    : '';
+
   return `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" stroke-width="2.5"/>
-    <circle cx="13" cy="17" r="2.2" fill="currentColor"/>
-    <circle cx="27" cy="17" r="2.2" fill="currentColor"/>
-    ${ceja}
-    <path d="M10 24 Q20 ${yControl} 30 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <circle cx="20" cy="20" r="18" fill="${fondo}" stroke="${color}" stroke-width="2.5"/>
+    ${mejillas}
+    ${ojos}
+    ${cejaIzq}
+    ${cejaDer}
+    <path d="M10 24 Q20 ${yControl} 30 24" stroke="${color}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
   </svg>`;
 }
 
@@ -639,16 +682,23 @@ const animoFilaEl = document.getElementById('animoFila');
 const animoLeyendaEl = document.getElementById('animoLeyenda');
 animoFilaEl.innerHTML = ESCALA_CARITAS.map(n => `
   <button type="button" class="animo-btn" data-animo="${n.valor}" data-etiqueta="${n.etiqueta}" aria-label="${n.etiqueta}">
-    ${svgCarita(n.curva)}
+    ${svgCarita(n)}
   </button>
 `).join('');
 
+// Guardamos el color de cada carita en el propio botón (para el estado seleccionado).
 document.querySelectorAll('.animo-btn').forEach(btn=>{
+  const nivel = ESCALA_CARITAS.find(n => n.valor === parseInt(btn.dataset.animo, 10));
+  const [r,g,b] = colorDeNivel(nivel.valor);
+  btn.style.setProperty('--mood-color', `rgb(${r},${g},${b})`);
+  btn.style.setProperty('--mood-bg', `rgba(${r},${g},${b},0.12)`);
+
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.animo-btn').forEach(b=>b.classList.remove('selected'));
     btn.classList.add('selected');
     animoSeleccionado = parseInt(btn.dataset.animo, 10);
     animoLeyendaEl.textContent = btn.dataset.etiqueta;
+    animoLeyendaEl.style.color = `rgb(${r},${g},${b})`;
     animoLeyendaEl.classList.add('tiene-seleccion');
   });
 });
@@ -658,6 +708,7 @@ function resetAnimo(){
   document.querySelectorAll('.animo-btn').forEach(b=>b.classList.remove('selected'));
   animoLeyendaEl.textContent = 'Tocá la carita que más se parece a como te sentís';
   animoLeyendaEl.classList.remove('tiene-seleccion');
+  animoLeyendaEl.style.color = '';
 }
 
 // ═══ MENSAJE DEL PROFESIONAL ═══
