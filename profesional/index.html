@@ -289,6 +289,25 @@
   .dash-chip{font-size:0.72rem; font-weight:600; padding:3px 8px; border-radius:20px; background:#F0F0F0; color:var(--texto-suave);}
   .dash-chip.cumplido{background:#E4F5F0; color:#1F9D6D;}
   .dash-chip.no-cumplido{background:#FCEBEA; color:var(--coral);}
+
+  /* ---------- RESUMEN PARA HISTORIA CLÍNICA ---------- */
+  .hc-fechas{display:flex; gap:12px; margin-bottom:2px;}
+  .hc-fechas .campo{flex:1;}
+  .hc-resultado{margin-top:16px;}
+  #hcTexto{
+    width:100%;
+    min-height:220px;
+    padding:14px;
+    border:1.5px solid var(--gris);
+    border-radius:10px;
+    font-family:inherit;
+    font-size:0.88rem;
+    line-height:1.55;
+    color:var(--texto);
+    resize:vertical;
+  }
+  #hcTexto:focus{outline:none; border-color:var(--azul);}
+  .hc-copiado{font-size:0.8rem; color:#1F9D6D; margin-top:8px; display:none;}
 </style>
 </head>
 <body>
@@ -418,6 +437,28 @@
     <div class="card">
       <h3>Hábitos recientes</h3>
       <div class="habitos-grid" id="habitosRecientes"></div>
+    </div>
+
+    <div class="card">
+      <h3>📋 Resumen para historia clínica</h3>
+      <p style="font-size:0.82rem;color:var(--texto-suave);margin:0 0 14px;">Elegí el período a resumir. El texto se arma listo para copiar y pegar en la evolución.</p>
+      <div class="hc-fechas">
+        <div class="campo">
+          <label for="hcDesde">Desde</label>
+          <input type="date" id="hcDesde">
+        </div>
+        <div class="campo">
+          <label for="hcHasta">Hasta</label>
+          <input type="date" id="hcHasta">
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btnGenerarResumenHC" style="width:auto;padding:10px 22px;">📝 Generar resumen</button>
+      <div class="error-msg" id="hcError" style="display:none;"></div>
+      <div class="hc-resultado" id="hcResultadoWrap" style="display:none;">
+        <textarea id="hcTexto" readonly rows="12"></textarea>
+        <button class="btn-habilitar" id="btnCopiarHC" type="button">📋 Copiar al portapapeles</button>
+        <div class="hc-copiado" id="hcCopiadoMsg">✓ Copiado.</div>
+      </div>
     </div>
   </main>
 </div>
@@ -655,6 +696,12 @@ async function abrirFicha(dni){
   document.getElementById('graficoPeso').innerHTML = '<div class="vacio">Cargando...</div>';
   document.getElementById('tablaEvolucion').innerHTML = '';
   document.getElementById('habitosRecientes').innerHTML = '<div class="vacio">Cargando...</div>';
+
+  document.getElementById('hcDesde').value = '';
+  document.getElementById('hcHasta').value = '';
+  document.getElementById('hcError').style.display = 'none';
+  document.getElementById('hcResultadoWrap').style.display = 'none';
+  document.getElementById('hcTexto').value = '';
 
   const { data: registros, error } = await sb
     .from('appdipo_registros')
@@ -937,6 +984,208 @@ async function cargarHabitosRecientes(dni){
       <div class="chips">${chips || '<span class="dash-chip">Sin datos de alimentación este día</span>'}</div>
     </div>`;
   }).join('');
+}
+
+// ═══ RESUMEN PARA HISTORIA CLÍNICA ═══
+const ETIQUETAS_TIPO_ALIMENTACION = { DASH: 'dieta DASH', MEDITERRANEO: 'dieta mediterránea' };
+const ETIQUETAS_NIVEL_PROTEICO = { hipo: 'hipoproteico', normo: 'normoproteico', hiper: 'hiperproteico' };
+
+function formatoFechaLarga(fechaStr){
+  return new Date(fechaStr + 'T00:00:00').toLocaleDateString('es-AR', { day:'2-digit', month:'long', year:'numeric' });
+}
+
+function diasEntre(desde, hasta){
+  const a = new Date(desde + 'T00:00:00');
+  const b = new Date(hasta + 'T00:00:00');
+  return Math.round((b - a) / 86400000) + 1;
+}
+
+function promedio(valores){
+  const nums = valores.filter(v => v != null && !isNaN(v));
+  if(!nums.length) return null;
+  return nums.reduce((a,b)=>a+b, 0) / nums.length;
+}
+
+function etiquetaAnimo(valor){
+  if(valor == null) return null;
+  if(valor < 2.5) return 'ánimo predominantemente bajo';
+  if(valor < 3.5) return 'ánimo con cierta insatisfacción general';
+  if(valor < 4.5) return 'ánimo mixto, sin predominio claro';
+  if(valor < 5.5) return 'ánimo bueno en general';
+  return 'muy buen ánimo';
+}
+
+document.getElementById('btnGenerarResumenHC').addEventListener('click', generarResumenHC);
+document.getElementById('btnCopiarHC').addEventListener('click', copiarResumenHC);
+
+async function generarResumenHC(){
+  if(!pacienteSeleccionado) return;
+
+  const errBox = document.getElementById('hcError');
+  errBox.style.display = 'none';
+  document.getElementById('hcResultadoWrap').style.display = 'none';
+
+  const desde = document.getElementById('hcDesde').value;
+  const hasta = document.getElementById('hcHasta').value;
+
+  if(!desde || !hasta){
+    errBox.textContent = 'Elegí una fecha de inicio y de fin para el resumen.';
+    errBox.style.display = 'block';
+    return;
+  }
+  if(desde > hasta){
+    errBox.textContent = 'La fecha "desde" no puede ser posterior a la fecha "hasta".';
+    errBox.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('btnGenerarResumenHC');
+  btn.disabled = true;
+  btn.textContent = 'Generando...';
+
+  const dni = pacienteSeleccionado.dni;
+  const [{ data: registros, error: errReg }, { data: habitos, error: errHab }] = await Promise.all([
+    sb.from('appdipo_registros').select('*').eq('dni', dni).gte('fecha', desde).lte('fecha', hasta).order('fecha', { ascending: true }),
+    sb.from('appdipo_habitos').select('*').eq('dni', dni).gte('fecha', desde).lte('fecha', hasta).order('fecha', { ascending: true }),
+  ]);
+
+  btn.disabled = false;
+  btn.textContent = '📝 Generar resumen';
+
+  if(errReg || errHab){
+    console.error(errReg || errHab);
+    errBox.textContent = 'No se pudieron traer los datos del período. Probá de nuevo.';
+    errBox.style.display = 'block';
+    return;
+  }
+
+  const texto = construirTextoResumenHC(pacienteSeleccionado, desde, hasta, registros || [], habitos || []);
+  document.getElementById('hcTexto').value = texto;
+  document.getElementById('hcResultadoWrap').style.display = 'block';
+  document.getElementById('hcCopiadoMsg').style.display = 'none';
+}
+
+function construirTextoResumenHC(paciente, desde, hasta, registros, habitos){
+  const nombre = paciente.pacientes
+    ? `${paciente.pacientes.nombre || ''} ${paciente.pacientes.apellido || ''}`.trim()
+    : '(sin nombre)';
+  const diasTotales = diasEntre(desde, hasta);
+
+  const parrafos = [];
+
+  parrafos.push(
+    `Seguimiento de ${nombre} (DNI ${paciente.dni}) entre el ${formatoFechaLarga(desde)} y el ${formatoFechaLarga(hasta)} (${diasTotales} días).`
+  );
+
+  // ── Antropometría ──
+  const conPeso = registros.filter(r => r.peso_kg != null);
+  if(conPeso.length){
+    const inicial = conPeso[0].peso_kg;
+    const actual = conPeso[conPeso.length - 1].peso_kg;
+    const variacion = (actual - inicial).toFixed(1);
+    const signo = variacion > 0 ? '+' : '';
+    let textoAntropo = `Antropometría: peso inicial de ${inicial} kg y peso actual de ${actual} kg, con una variación de ${signo}${variacion} kg en el período.`;
+
+    const conCintura = registros.filter(r => r.cintura_cm != null);
+    if(conCintura.length){
+      textoAntropo += ` Circunferencia de cintura: de ${conCintura[0].cintura_cm} cm a ${conCintura[conCintura.length-1].cintura_cm} cm.`;
+    }
+    const conCadera = registros.filter(r => r.cadera_cm != null);
+    if(conCadera.length){
+      textoAntropo += ` Cadera: de ${conCadera[0].cadera_cm} cm a ${conCadera[conCadera.length-1].cadera_cm} cm.`;
+    }
+    const conCuello = registros.filter(r => r.cuello_cm != null);
+    if(conCuello.length){
+      textoAntropo += ` Cuello: de ${conCuello[0].cuello_cm} cm a ${conCuello[conCuello.length-1].cuello_cm} cm.`;
+    }
+    parrafos.push(textoAntropo);
+  } else {
+    parrafos.push('Antropometría: sin registros de peso cargados en el período.');
+  }
+
+  // ── Adherencia al registro ──
+  const fechasConDato = new Set([
+    ...registros.map(r => r.fecha),
+    ...habitos.map(h => h.fecha),
+  ]);
+  const porcentajeAdherencia = diasTotales ? Math.round((fechasConDato.size / diasTotales) * 100) : 0;
+  parrafos.push(
+    `Adherencia al registro: cargó datos en ${fechasConDato.size} de ${diasTotales} días del período (${porcentajeAdherencia}%).`
+  );
+
+  // ── Alimentación ──
+  const habitosConAlimentacion = habitos.filter(h => h.alimentacion_dash_json && Object.keys(h.alimentacion_dash_json).length);
+  if(habitosConAlimentacion.length){
+    const tipo = paciente.tipo_alimentacion || 'DASH';
+    const nivel = paciente.nivel_proteico || 'normo';
+    const cumplimientos = CATALOGO_DASH_OBJ.map(cat=>{
+      const objetivo = obtenerObjetivoDashProf(paciente, cat);
+      const diasCumplidos = habitosConAlimentacion.filter(h => (h.alimentacion_dash_json[cat.key] || 0) >= objetivo).length;
+      const pct = Math.round((diasCumplidos / habitosConAlimentacion.length) * 100);
+      return `${cat.nombre.toLowerCase()} ${pct}%`;
+    }).join(', ');
+
+    parrafos.push(
+      `Alimentación: bajo un patrón de ${ETIQUETAS_TIPO_ALIMENTACION[tipo] || tipo} con aporte proteico ${ETIQUETAS_NIVEL_PROTEICO[nivel] || nivel}, cumplió el objetivo diario en ${habitosConAlimentacion.length} días registrados de la siguiente manera: ${cumplimientos}.`
+    );
+  } else {
+    parrafos.push('Alimentación: sin registros de hábitos alimentarios cargados en el período.');
+  }
+
+  // ── Actividad física ──
+  const habitosConActividad = habitos.filter(h => h.actividad_json && Object.keys(h.actividad_json).length);
+  if(habitosConActividad.length){
+    let totalItems = 0, totalCumplidos = 0;
+    habitosConActividad.forEach(h=>{
+      Object.values(h.actividad_json).forEach(v=>{
+        totalItems++;
+        if(v) totalCumplidos++;
+      });
+    });
+    const pctActividad = totalItems ? Math.round((totalCumplidos / totalItems) * 100) : null;
+    const promPasos = promedio(habitos.map(h => h.pasos));
+
+    let textoActividad = pctActividad != null
+      ? `Actividad física: cumplimiento del ${pctActividad}% de los objetivos marcados en los ${habitosConActividad.length} días registrados.`
+      : 'Actividad física: sin objetivos de actividad marcados en el período.';
+    if(promPasos != null) textoActividad += ` Promedio de ${Math.round(promPasos)} pasos diarios.`;
+    parrafos.push(textoActividad);
+  } else {
+    parrafos.push('Actividad física: sin registros cargados en el período.');
+  }
+
+  // ── Sueño y pantalla ──
+  const promSueno = promedio(habitos.map(h => h.sueno_horas));
+  const promPantalla = promedio(habitos.map(h => h.pantalla_horas));
+  if(promSueno != null || promPantalla != null){
+    const partes = [];
+    if(promSueno != null) partes.push(`promedio de ${promSueno.toFixed(1)} horas de sueño`);
+    if(promPantalla != null) partes.push(`promedio de ${promPantalla.toFixed(1)} horas de uso de pantalla diario`);
+    parrafos.push(`Sueño y pantalla: ${partes.join('; ')}.`);
+  }
+
+  // ── Ánimo ──
+  const promAnimo = promedio(registros.map(r => r.animo));
+  if(promAnimo != null){
+    parrafos.push(`Estado de ánimo: promedio de ${promAnimo.toFixed(1)}/7 en el período, compatible con ${etiquetaAnimo(promAnimo)}.`);
+  }
+
+  return parrafos.join('\n\n');
+}
+
+async function copiarResumenHC(){
+  const texto = document.getElementById('hcTexto').value;
+  const msg = document.getElementById('hcCopiadoMsg');
+  try{
+    await navigator.clipboard.writeText(texto);
+  }catch(e){
+    // Fallback para navegadores/contextos sin Clipboard API
+    const textarea = document.getElementById('hcTexto');
+    textarea.select();
+    document.execCommand('copy');
+  }
+  msg.style.display = 'block';
+  setTimeout(()=>{ msg.style.display = 'none'; }, 2500);
 }
 
 // ═══ SESIÓN PERSISTENTE ═══
