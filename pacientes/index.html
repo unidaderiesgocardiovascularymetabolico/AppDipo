@@ -594,6 +594,78 @@
     color:var(--blanco);
     font-weight:700;
   }
+
+  /* ---------- BOTÓN PERFIL (header) ---------- */
+  header.top .perfil-btn{
+    float:right;
+    background:rgba(255,255,255,0.18);
+    border:none;
+    color:var(--blanco);
+    padding:8px 10px;
+    border-radius:8px;
+    font-size:0.9rem;
+    cursor:pointer;
+    margin-right:8px;
+  }
+
+  /* ---------- MODAL DATOS PERSONALES ---------- */
+  .modal-overlay{
+    display:none;
+    position:fixed; inset:0;
+    background:rgba(0,0,0,0.5);
+    align-items:center;
+    justify-content:center;
+    z-index:200;
+    padding:20px;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal-box{
+    background:var(--blanco);
+    border-radius:var(--radio);
+    padding:24px 22px;
+    max-width:420px;
+    width:100%;
+    max-height:88vh;
+    overflow-y:auto;
+  }
+  .modal-box h3{color:var(--azul); font-size:1.15rem; margin-bottom:6px;}
+  .modal-box .modal-sub{font-size:0.82rem; color:var(--texto-suave); margin:0 0 18px;}
+  .campo select{
+    width:100%;
+    padding:13px 14px;
+    border:1.5px solid var(--gris);
+    border-radius:10px;
+    font-size:1rem;
+    font-family:inherit;
+    background:var(--blanco);
+    color:var(--texto);
+  }
+  .campo select:focus{outline:none; border-color:var(--azul);}
+  .campo-si-no{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:12px 4px;
+    border-bottom:1px solid var(--gris);
+  }
+  .campo-si-no:last-child{border-bottom:none;}
+  .campo-si-no .nombre{font-size:0.92rem;}
+  .campo-condicional{display:none;}
+  .campo-condicional.mostrar{display:block;}
+  .modal-box .btn-primary{margin-top:6px;}
+  .modal-box .btn-secundario{
+    width:100%;
+    padding:14px;
+    border:1.5px solid var(--gris);
+    border-radius:10px;
+    background:var(--blanco);
+    color:var(--texto-suave);
+    font-family:'Encode Sans', sans-serif;
+    font-weight:600;
+    font-size:0.95rem;
+    cursor:pointer;
+    margin-top:10px;
+  }
 </style>
 </head>
 <body>
@@ -624,6 +696,7 @@
   <div id="vista-app">
     <header class="top">
       <button class="salir" id="btnSalir">Salir</button>
+      <button class="perfil-btn" id="btnMiPerfil" title="Mis datos personales">👤</button>
       <div class="saludo">Hola,</div>
       <h2 id="nombrePaciente">Paciente</h2>
     </header>
@@ -838,6 +911,60 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- ============ MODAL DATOS PERSONALES ============ -->
+<div class="modal-overlay" id="modalPerfil">
+  <div class="modal-box">
+    <h3>Tus datos personales</h3>
+    <p class="modal-sub">Tu médico/a los necesita para calcular tus objetivos de proteínas y calcio. Podés actualizarlos cuando quieras tocando el ícono 👤.</p>
+
+    <div class="campo">
+      <label for="perfilEdad">Edad</label>
+      <input type="number" min="0" max="120" inputmode="numeric" id="perfilEdad" placeholder="Años cumplidos">
+    </div>
+
+    <div class="campo">
+      <label for="perfilSexo">Sexo</label>
+      <select id="perfilSexo">
+        <option value="">Seleccioná...</option>
+        <option value="F">Femenino</option>
+        <option value="M">Masculino</option>
+      </select>
+    </div>
+
+    <div class="campo">
+      <label for="perfilAltura">Altura (opcional)</label>
+      <div class="unidad">
+        <input type="number" step="0.1" inputmode="decimal" id="perfilAltura" placeholder="0.0">
+        <span>cm</span>
+      </div>
+    </div>
+
+    <div class="campo-condicional" id="campoEmbarazo">
+      <div class="campo-si-no">
+        <span class="nombre">¿Estás embarazada?</span>
+        <label class="switch">
+          <input type="checkbox" id="perfilEmbarazo">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="campo-condicional" id="campoMenopausia">
+      <div class="campo-si-no">
+        <span class="nombre">¿Estás en menopausia?</span>
+        <label class="switch">
+          <input type="checkbox" id="perfilMenopausia">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="btnGuardarPerfil">Guardar datos</button>
+    <button class="btn-secundario" id="btnCerrarPerfil" style="display:none;">Cancelar</button>
+    <div class="error-msg" id="perfilError"></div>
+  </div>
+</div>
+
 <script>
 // ═══ CONFIGURACIÓN SUPABASE (mismo proyecto que URCyM) ═══
 const SUPABASE_URL = 'https://qdjzetylyojfjdottjrk.supabase.co';
@@ -968,6 +1095,110 @@ function resetAnimo(){
   animoLeyendaEl.style.color = '';
 }
 
+// ═══ DATOS PERSONALES (edad, sexo, embarazo, menopausia) ═══
+// Se usan del lado profesional para calcular automáticamente objetivos de
+// proteínas (por peso) y calcio (por edad/embarazo/menopausia, OMS).
+const modalPerfil = document.getElementById('modalPerfil');
+const perfilEdad = document.getElementById('perfilEdad');
+const perfilSexo = document.getElementById('perfilSexo');
+const perfilAltura = document.getElementById('perfilAltura');
+const perfilEmbarazo = document.getElementById('perfilEmbarazo');
+const perfilMenopausia = document.getElementById('perfilMenopausia');
+const campoEmbarazo = document.getElementById('campoEmbarazo');
+const campoMenopausia = document.getElementById('campoMenopausia');
+const perfilError = document.getElementById('perfilError');
+
+function datosPersonalesCompletos(p){
+  return p && p.edad != null && p.sexo;
+}
+
+function actualizarVisibilidadCamposPerfil(){
+  const sexo = perfilSexo.value;
+  const edad = parseInt(perfilEdad.value, 10);
+
+  // Embarazo: solo tiene sentido preguntarlo en sexo femenino, en un rango
+  // de edad fértil razonable. Si edad no está cargada todavía, lo mostramos igual.
+  const mostrarEmbarazo = sexo === 'F' && (isNaN(edad) || (edad >= 12 && edad <= 55));
+  campoEmbarazo.classList.toggle('mostrar', mostrarEmbarazo);
+  if(!mostrarEmbarazo) perfilEmbarazo.checked = false;
+
+  // Menopausia: sexo femenino, a partir de los 40 años aprox.
+  const mostrarMenopausia = sexo === 'F' && (isNaN(edad) || edad >= 40);
+  campoMenopausia.classList.toggle('mostrar', mostrarMenopausia);
+  if(!mostrarMenopausia) perfilMenopausia.checked = false;
+
+  // Embarazo y menopausia son mutuamente excluyentes.
+  if(perfilEmbarazo.checked) perfilMenopausia.checked = false;
+}
+perfilSexo.addEventListener('change', actualizarVisibilidadCamposPerfil);
+perfilEdad.addEventListener('input', actualizarVisibilidadCamposPerfil);
+perfilEmbarazo.addEventListener('change', ()=>{
+  if(perfilEmbarazo.checked) perfilMenopausia.checked = false;
+});
+perfilMenopausia.addEventListener('change', ()=>{
+  if(perfilMenopausia.checked) perfilEmbarazo.checked = false;
+});
+
+function abrirModalPerfil(obligatorio){
+  perfilError.style.display = 'none';
+  perfilEdad.value = pacienteActual?.edad ?? '';
+  perfilSexo.value = pacienteActual?.sexo ?? '';
+  perfilAltura.value = pacienteActual?.altura_cm ?? '';
+  perfilEmbarazo.checked = !!pacienteActual?.embarazo;
+  perfilMenopausia.checked = !!pacienteActual?.menopausia;
+  actualizarVisibilidadCamposPerfil();
+  document.getElementById('btnCerrarPerfil').style.display = obligatorio ? 'none' : 'block';
+  modalPerfil.classList.add('show');
+}
+
+document.getElementById('btnMiPerfil').addEventListener('click', ()=> abrirModalPerfil(false));
+document.getElementById('btnCerrarPerfil').addEventListener('click', ()=>{
+  modalPerfil.classList.remove('show');
+});
+
+document.getElementById('btnGuardarPerfil').addEventListener('click', guardarPerfil);
+
+async function guardarPerfil(){
+  perfilError.style.display = 'none';
+  const edad = parseInt(perfilEdad.value, 10);
+  const sexo = perfilSexo.value;
+
+  if(isNaN(edad) || edad <= 0 || !sexo){
+    perfilError.textContent = 'Completá al menos edad y sexo para continuar.';
+    perfilError.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('btnGuardarPerfil');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  const alturaVal = perfilAltura.value.trim();
+  const payload = {
+    edad,
+    sexo,
+    altura_cm: alturaVal === '' ? null : parseFloat(alturaVal),
+    embarazo: campoEmbarazo.classList.contains('mostrar') ? perfilEmbarazo.checked : false,
+    menopausia: campoMenopausia.classList.contains('mostrar') ? perfilMenopausia.checked : false
+  };
+
+  const { error } = await sb.from('appdipo_pacientes').update(payload).eq('dni', pacienteActual.dni);
+
+  btn.disabled = false;
+  btn.textContent = 'Guardar datos';
+
+  if(error){
+    console.error(error);
+    perfilError.textContent = 'No se pudieron guardar los datos: ' + error.message;
+    perfilError.style.display = 'block';
+    return;
+  }
+
+  Object.assign(pacienteActual, payload);
+  modalPerfil.classList.remove('show');
+  mostrarToast('Datos guardados ✓');
+}
+
 // ═══ MENSAJE DEL PROFESIONAL ═══
 async function cargarMensaje(){
   const { data } = await sb.from('appdipo_mensajes').select('mensaje').eq('id', 1).maybeSingle();
@@ -1050,6 +1281,10 @@ async function cargarPaciente(){
     cargarMensaje();
     cargarHistorial();
     cargarAntropometriaClinica();
+
+    if(!datosPersonalesCompletos(pacienteActual)){
+      abrirModalPerfil(true);
+    }
   }catch(e){
     console.error(e);
     const errBox = document.getElementById('loginError');
