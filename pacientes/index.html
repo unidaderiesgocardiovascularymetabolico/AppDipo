@@ -404,14 +404,24 @@
 
   /* ---------- ALIMENTACIÓN DASH (contadores de porciones) ---------- */
   .dash-item{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
     padding:12px 4px;
     border-bottom:1px solid var(--gris);
   }
   .dash-item:last-child{border-bottom:none;}
+  .dash-item-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .dash-nombre-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    min-width:0;
+  }
+  .dash-icono{font-size:1.3rem; flex-shrink:0; line-height:1;}
+  .dash-info{min-width:0;}
   .dash-info .nombre{font-size:0.92rem; font-weight:600;}
   .dash-info .meta{font-size:0.75rem; color:var(--texto-suave); margin-top:2px;}
   .dash-info .meta.cumplido{color:#1F9D6D; font-weight:600;}
@@ -437,6 +447,57 @@
   }
   .dash-stepper button:active{transform:scale(0.92);}
   .dash-stepper .cantidad{min-width:20px; text-align:center; font-weight:700; font-size:1rem;}
+
+  .dash-progress-track{
+    height:7px;
+    background:var(--gris);
+    border-radius:99px;
+    overflow:hidden;
+    margin-top:8px;
+  }
+  .dash-progress-fill{
+    height:100%;
+    border-radius:99px;
+    background:var(--teal);
+    transition:width .2s ease;
+  }
+  .dash-progress-fill.cumplido{background:#1F9D6D;}
+
+  .dash-duda-btn{
+    margin-top:8px;
+    background:none;
+    border:none;
+    padding:2px 0;
+    font-size:0.78rem;
+    font-weight:600;
+    color:var(--azul);
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+  }
+  .dash-duda-btn .flecha{font-size:0.65rem; transition:transform .15s ease;}
+  .dash-duda-btn.abierto .flecha{transform:rotate(180deg);}
+
+  .dash-info-panel{
+    display:none;
+    margin-top:8px;
+    background:#F4F9FB;
+    border:1px solid var(--gris);
+    border-radius:10px;
+    padding:10px 12px;
+    font-size:0.8rem;
+    color:var(--texto);
+    line-height:1.5;
+  }
+  .dash-info-panel.abierto{display:block;}
+  .dash-info-panel b{color:var(--azul);}
+  .dash-info-panel .porcion-def{
+    margin-top:6px;
+    padding-top:6px;
+    border-top:1px dashed var(--gris);
+    color:var(--texto-suave);
+  }
 
   /* ---------- RESUMEN SEMANAL ---------- */
   .resumen-semana-fila{
@@ -618,15 +679,8 @@
         </div>
 
         <div class="card">
-          <h3>Alimentación</h3>
-          <div id="listaObjetivosAlimentacion">
-            <div class="objetivo-vacio">Tu médico/a todavía no cargó objetivos de alimentación.</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Alimentación DASH de hoy</h3>
-          <p class="campo-opcional-label" style="margin-bottom:12px;">Contá cuántas porciones comiste hoy de cada grupo. Los objetivos de proteínas y calcio los define tu médico/a; el resto son valores de referencia de la dieta DASH.</p>
+          <h3>🥗 Alimentación DASH de hoy</h3>
+          <p class="campo-opcional-label" style="margin-bottom:12px;">Contá cuántas porciones comiste hoy de cada grupo. Los objetivos de proteínas y calcio los define tu médico/a; el resto son valores de referencia de la dieta DASH. Tocá "¿Qué cuenta acá?" si tenés dudas sobre algún grupo.</p>
           <div id="listaAlimentacionDash"></div>
         </div>
 
@@ -1074,16 +1128,6 @@ async function guardarRegistro(){
 }
 
 // ═══ HABITOS DINÁMICOS (objetivos cargados por el profesional) ═══
-const ETIQUETAS_ALIMENTACION = {
-  frutas: 'Frutas',
-  verduras: 'Verduras',
-  calcio: 'Calcio',
-  proteinas: 'Proteínas',
-  frutos_secos: 'Frutos secos',
-  agua: 'Agua',
-  legumbres: 'Legumbres'
-};
-
 function actualizarResumenHabitos(){
   const chksActividad = document.querySelectorAll('.chk-objetivo[data-tipo="actividad"]');
   const elAct = document.getElementById('resumenActividad');
@@ -1098,12 +1142,15 @@ function actualizarResumenHabitos(){
     }
   }
 
-  const chksAlim = document.querySelectorAll('.chk-objetivo[data-tipo="alimentacion"]');
+  // Resumen rápido de alimentación: cuántos grupos DASH con objetivo ya están cumplidos hoy
   const contAlim = document.getElementById('resumenAlimentos');
-  contAlim.innerHTML = Array.from(chksAlim).map(c=>{
-    const label = ETIQUETAS_ALIMENTACION[c.dataset.key] || c.dataset.key;
-    return `<span class="resumen-chip ${c.checked ? 'on' : ''}">${c.checked ? '✓' : '○'} ${label}</span>`;
-  }).join('');
+  const conObjetivo = CATALOGO_DASH.filter(item => obtenerObjetivoDash(item.key) != null);
+  if(!conObjetivo.length){
+    contAlim.innerHTML = '';
+  } else {
+    const cumplidos = conObjetivo.filter(item => (estadoDash[item.key] || 0) >= obtenerObjetivoDash(item.key)).length;
+    contAlim.innerHTML = `<span class="resumen-chip ${cumplidos === conObjetivo.length ? 'on' : ''}">🥗 Alimentación: ${cumplidos}/${conObjetivo.length} grupos cumplidos hoy</span>`;
+  }
 }
 
 document.addEventListener('change', e=>{
@@ -1114,15 +1161,30 @@ document.addEventListener('change', e=>{
 // Objetivos de proteínas y calcio: los define el profesional (pacienteActual.objetivo_*).
 // El resto son valores de referencia general de la dieta DASH.
 const CATALOGO_DASH = [
-  { key:'granos',                  nombre:'Granos integrales',       objetivoDefault:6 },
-  { key:'verduras',                nombre:'Verduras',                objetivoDefault:4 },
-  { key:'frutas',                  nombre:'Frutas',                  objetivoDefault:4 },
-  { key:'calcio',                  nombre:'Lácteos / calcio',        objetivoDefault:2.5 },
-  { key:'proteinas',               nombre:'Proteínas',               objetivoDefault:3 },
-  { key:'frutos_secos_legumbres',  nombre:'Frutos secos y legumbres',objetivoDefault:1 },
-  { key:'huevo',                   nombre:'Huevo',                   objetivoDefault:null },
+  { key:'granos', nombre:'Granos integrales', icono:'🌾', objetivoDefault:6,
+    ejemplos:'Pan integral, avena, arroz integral, choclo, quinoa, galletas integrales.',
+    porcion:'1 porción = 1 rebanada de pan integral, ½ taza de arroz o avena cocidos, o ½ pancito.' },
+  { key:'verduras', nombre:'Verduras', icono:'🥦', objetivoDefault:4,
+    ejemplos:'Lechuga, tomate, zanahoria, brócoli, acelga, zapallo, zapallito, berenjena.',
+    porcion:'1 porción = 1 taza de verdura de hoja cruda, o ½ taza de verdura cocida.' },
+  { key:'frutas', nombre:'Frutas', icono:'🍎', objetivoDefault:4,
+    ejemplos:'Manzana, banana, naranja, mandarina, frutillas, pera, uvas.',
+    porcion:'1 porción = 1 fruta mediana, ½ taza de fruta picada, o ¾ taza de jugo natural.' },
+  { key:'calcio', nombre:'Lácteos / calcio', icono:'🥛', objetivoDefault:2.5,
+    ejemplos:'Leche, yogur, queso, quesillo, ricota.',
+    porcion:'1 porción = 1 vaso de leche (200ml), 1 pote de yogur, o 1 fetita de queso.' },
+  { key:'proteinas', nombre:'Proteínas', icono:'🍗', objetivoDefault:3,
+    ejemplos:'Carne vacuna magra, pollo, pescado, huevo (aparte), legumbres.',
+    porcion:'1 porción ≈ el tamaño de la palma de tu mano (90-100g) de carne o pollo, o ½ taza de legumbres cocidas.' },
+  { key:'frutos_secos_legumbres', nombre:'Frutos secos y legumbres', icono:'🥜', objetivoDefault:1,
+    ejemplos:'Nueces, almendras, maní, garbanzos, lentejas, porotos, arvejas.',
+    porcion:'1 porción = ⅓ taza de frutos secos (~40g), o ½ taza de legumbres cocidas.' },
+  { key:'huevo', nombre:'Huevo', icono:'🥚', objetivoDefault:null,
+    ejemplos:'Huevo entero, de gallina o de codorniz.',
+    porcion:'1 porción = 1 huevo entero.' },
 ];
 let estadoDash = {};
+const dashPanelesAbiertos = new Set();
 
 function obtenerObjetivoDash(key){
   if(key === 'proteinas') return pacienteActual?.objetivo_proteinas_porciones ?? null;
@@ -1138,27 +1200,50 @@ function renderizarListaDash(){
     const objetivo = obtenerObjetivoDash(item.key);
     const cumplido = objetivo != null && cantidad >= objetivo;
     const metaTexto = objetivo != null ? `Objetivo: ${objetivo} porciones/día` : 'Se registra sin objetivo fijo';
+    const pct = objetivo != null ? Math.min(100, Math.round((cantidad / objetivo) * 100)) : 0;
+    const abierto = dashPanelesAbiertos.has(item.key);
     return `<div class="dash-item">
-      <div class="dash-info">
-        <div class="nombre">${item.nombre}</div>
-        <div class="meta ${cumplido ? 'cumplido' : ''}">${metaTexto}${cumplido ? ' ✓' : ''}</div>
+      <div class="dash-item-top">
+        <div class="dash-nombre-row">
+          <span class="dash-icono">${item.icono}</span>
+          <div class="dash-info">
+            <div class="nombre">${item.nombre}</div>
+            <div class="meta ${cumplido ? 'cumplido' : ''}">${metaTexto}${cumplido ? ' ✓' : ''}</div>
+          </div>
+        </div>
+        <div class="dash-stepper">
+          <button type="button" data-accion="restar" data-key="${item.key}" aria-label="Restar porción">–</button>
+          <span class="cantidad">${cantidad}</span>
+          <button type="button" data-accion="sumar" data-key="${item.key}" aria-label="Sumar porción">+</button>
+        </div>
       </div>
-      <div class="dash-stepper">
-        <button type="button" data-accion="restar" data-key="${item.key}" aria-label="Restar porción">–</button>
-        <span class="cantidad">${cantidad}</span>
-        <button type="button" data-accion="sumar" data-key="${item.key}" aria-label="Sumar porción">+</button>
+      ${objetivo != null ? `<div class="dash-progress-track"><div class="dash-progress-fill ${cumplido ? 'cumplido' : ''}" style="width:${pct}%"></div></div>` : ''}
+      <button type="button" class="dash-duda-btn ${abierto ? 'abierto' : ''}" data-duda-key="${item.key}">¿Qué cuenta acá? <span class="flecha">▾</span></button>
+      <div class="dash-info-panel ${abierto ? 'abierto' : ''}">
+        <div><b>Ejemplos:</b> ${item.ejemplos}</div>
+        <div class="porcion-def">${item.porcion}</div>
       </div>
     </div>`;
   }).join('');
 }
 
 document.addEventListener('click', e=>{
-  const btn = e.target.closest('.dash-stepper button');
-  if(!btn) return;
-  const key = btn.dataset.key;
-  const delta = btn.dataset.accion === 'sumar' ? 1 : -1;
-  estadoDash[key] = Math.max(0, (estadoDash[key] || 0) + delta);
-  renderizarListaDash();
+  const btnStep = e.target.closest('.dash-stepper button');
+  if(btnStep){
+    const key = btnStep.dataset.key;
+    const delta = btnStep.dataset.accion === 'sumar' ? 1 : -1;
+    estadoDash[key] = Math.max(0, (estadoDash[key] || 0) + delta);
+    renderizarListaDash();
+    actualizarResumenHabitos();
+    return;
+  }
+  const btnDuda = e.target.closest('.dash-duda-btn');
+  if(btnDuda){
+    const key = btnDuda.dataset.dudaKey;
+    if(dashPanelesAbiertos.has(key)) dashPanelesAbiertos.delete(key);
+    else dashPanelesAbiertos.add(key);
+    renderizarListaDash();
+  }
 });
 
 function renderizarListaObjetivos(contenedorId, objetivos){
@@ -1171,7 +1256,7 @@ function renderizarListaObjetivos(contenedorId, objetivos){
     <div class="habito-item">
       <span class="nombre">${obj.label}</span>
       <label class="switch">
-        <input type="checkbox" class="chk-objetivo" data-tipo="${contenedorId === 'listaObjetivosActividad' ? 'actividad' : 'alimentacion'}" data-key="${obj.key}">
+        <input type="checkbox" class="chk-objetivo" data-tipo="actividad" data-key="${obj.key}">
         <span class="slider"></span>
       </label>
     </div>
@@ -1186,7 +1271,7 @@ async function cargarPanelHabitos(){
   const { data: actualizado } = await sb
     .from('appdipo_pacientes')
     .select(`
-      objetivos_actividad, objetivos_alimentacion,
+      objetivos_actividad,
       objetivo_proteinas_porciones, objetivo_calcio_porciones,
       objetivo_sueno_horas, objetivo_pasos_diarios, objetivo_pantalla_horas_max,
       objetivo_pausas_activas, objetivo_pausas_activas_veces
@@ -1199,7 +1284,6 @@ async function cargarPanelHabitos(){
   }
 
   renderizarListaObjetivos('listaObjetivosActividad', pacienteActual.objetivos_actividad);
-  renderizarListaObjetivos('listaObjetivosAlimentacion', pacienteActual.objetivos_alimentacion);
 
   document.getElementById('campoPausasActivas').style.display = pacienteActual.objetivo_pausas_activas ? 'block' : 'none';
 
@@ -1207,15 +1291,14 @@ async function cargarPanelHabitos(){
   const hoy = new Date().toISOString().slice(0,10);
   const { data } = await sb
     .from('appdipo_habitos')
-    .select('actividad_json, alimentacion_json, alimentacion_dash_json, sueno_horas, pasos, pantalla_horas, pausas_activas_realizadas')
+    .select('actividad_json, alimentacion_dash_json, sueno_horas, pasos, pantalla_horas, pausas_activas_realizadas')
     .eq('dni', pacienteActual.dni)
     .eq('fecha', hoy)
     .maybeSingle();
 
   if(data){
-    document.querySelectorAll('.chk-objetivo').forEach(chk=>{
-      const fuente = chk.dataset.tipo === 'actividad' ? data.actividad_json : data.alimentacion_json;
-      if(fuente && fuente[chk.dataset.key]) chk.checked = true;
+    document.querySelectorAll('.chk-objetivo[data-tipo="actividad"]').forEach(chk=>{
+      if(data.actividad_json && data.actividad_json[chk.dataset.key]) chk.checked = true;
     });
     estadoDash = data.alimentacion_dash_json || {};
     document.getElementById('inSuenoHoras').value = data.sueno_horas ?? '';
@@ -1241,10 +1324,8 @@ async function guardarHabitos(){
   if(!pacienteActual) return;
 
   const actividad_json = {};
-  const alimentacion_json = {};
-  document.querySelectorAll('.chk-objetivo').forEach(chk=>{
-    if(chk.dataset.tipo === 'actividad') actividad_json[chk.dataset.key] = chk.checked;
-    else alimentacion_json[chk.dataset.key] = chk.checked;
+  document.querySelectorAll('.chk-objetivo[data-tipo="actividad"]').forEach(chk=>{
+    actividad_json[chk.dataset.key] = chk.checked;
   });
 
   const sueno_horas = parseFloat(document.getElementById('inSuenoHoras').value) || null;
@@ -1261,7 +1342,7 @@ async function guardarHabitos(){
   btn.textContent = 'Guardando...';
 
   const camposComunes = {
-    actividad_json, alimentacion_json,
+    actividad_json,
     alimentacion_dash_json: estadoDash,
     sueno_horas, pasos, pantalla_horas, pausas_activas_realizadas
   };
