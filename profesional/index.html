@@ -58,6 +58,16 @@
     font-family:inherit;
   }
   .campo input:focus{outline:none; border-color:var(--azul);}
+  .campo textarea{
+    width:100%;
+    padding:12px 14px;
+    border:1.5px solid var(--gris);
+    border-radius:9px;
+    font-size:0.95rem;
+    font-family:inherit;
+    resize:vertical;
+  }
+  .campo textarea:focus{outline:none; border-color:var(--azul);}
   .btn{
     padding:12px 20px;
     border:none;
@@ -326,6 +336,41 @@
   }
   #hcTexto:focus{outline:none; border-color:var(--azul);}
   .hc-copiado{font-size:0.8rem; color:#1F9D6D; margin-top:8px; display:none;}
+
+  /* ---------- INFORMACIÓN IMPORTANTE (acordeón) ---------- */
+  .acordeon-item{
+    background:var(--blanco);
+    border:1.5px solid var(--gris);
+    border-radius:10px;
+    margin-bottom:12px;
+    overflow:hidden;
+  }
+  .acordeon-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    padding:14px 16px;
+    cursor:pointer;
+    font-family:'Amiko', serif;
+    font-weight:700;
+    font-size:0.95rem;
+    color:var(--azul);
+  }
+  .acordeon-flecha{
+    color:var(--texto-suave);
+    font-size:0.85rem;
+    transition:transform .2s ease;
+    flex-shrink:0;
+  }
+  .acordeon-item.abierto .acordeon-flecha{transform:rotate(180deg);}
+  .acordeon-body{
+    display:none;
+    padding:0 16px 16px;
+    border-top:1px solid var(--gris);
+  }
+  .acordeon-item.abierto .acordeon-body{display:block; padding-top:14px;}
+  .form-contenido{background:var(--fondo); border-radius:10px; padding:16px; margin-top:12px;}
 </style>
 </head>
 <body>
@@ -358,6 +403,21 @@
     <button class="salir" id="btnSalir">Salir</button>
   </header>
   <main>
+    <div class="card" id="cardTipProf">
+      <h3>💡 Tip del día para pacientes</h3>
+      <p style="font-size:0.82rem;color:var(--texto-suave);margin:0 0 14px;">Este tip aparece en la solapa "Hoy" de la app de pacientes, el día que elijas. Podés cargar tips por adelantado cambiando la fecha.</p>
+      <div class="campo">
+        <label for="inFechaTip">Fecha</label>
+        <input type="date" id="inFechaTip">
+      </div>
+      <div class="campo">
+        <label for="inTextoTip">Tip</label>
+        <textarea id="inTextoTip" rows="3" placeholder="Escribí el tip para ese día..."></textarea>
+      </div>
+      <button class="btn btn-primary" id="btnGuardarTip" style="width:auto;padding:10px 22px;">💾 Guardar tip</button>
+      <div class="obj-ali-guardado" id="tipGuardadoMsg">✓ Tip guardado.</div>
+    </div>
+
     <input type="text" class="buscador" id="buscador" placeholder="Buscar por nombre o DNI...">
     <div class="lista-pacientes" id="listaPacientes">
       <div class="vacio">Cargando pacientes...</div>
@@ -494,6 +554,106 @@
     <div class="card">
       <h3>Hábitos recientes</h3>
       <div class="habitos-grid" id="habitosRecientes"></div>
+    </div>
+
+    <div class="card">
+      <h3>📚 Información importante</h3>
+      <p style="font-size:0.82rem;color:var(--texto-suave);margin:0 0 14px;">Este contenido se muestra en la solapa "Información importante" de la app del paciente. Podés agregar texto, un video y/o un PDF en cada sección.</p>
+
+      <div class="acordeon-item" data-seccion="adiposidad">
+        <div class="acordeon-header">
+          <span>Adiposidad</span>
+          <span class="acordeon-flecha">▾</span>
+        </div>
+        <div class="acordeon-body">
+          <div class="contenido-lista" data-lista="adiposidad"><div class="vacio">Cargando...</div></div>
+          <button type="button" class="btn-agregar-objetivo btn-mostrar-form-contenido" data-seccion="adiposidad">+ Agregar contenido</button>
+          <div class="form-contenido" data-form="adiposidad" style="display:none;">
+            <div class="campo"><label>Título (opcional)</label><input type="text" class="in-titulo-contenido"></div>
+            <div class="campo"><label>Texto</label><textarea class="in-texto-contenido" rows="3"></textarea></div>
+            <div class="campo"><label>Link de video (opcional)</label><input type="url" class="in-video-contenido" placeholder="https://..."></div>
+            <div class="campo"><label>Link de PDF (opcional)</label><input type="url" class="in-pdf-contenido" placeholder="https://..."></div>
+            <button type="button" class="btn btn-primary btn-confirmar-contenido" data-seccion="adiposidad" style="width:auto;padding:10px 20px;">Agregar</button>
+            <button type="button" class="btn-cancelar-obj btn-cancelar-contenido" data-seccion="adiposidad">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="acordeon-item" data-seccion="farmacologico">
+        <div class="acordeon-header">
+          <span>Tratamiento farmacológico</span>
+          <span class="acordeon-flecha">▾</span>
+        </div>
+        <div class="acordeon-body">
+          <div class="contenido-lista" data-lista="farmacologico"><div class="vacio">Cargando...</div></div>
+          <button type="button" class="btn-agregar-objetivo btn-mostrar-form-contenido" data-seccion="farmacologico">+ Agregar contenido</button>
+          <div class="form-contenido" data-form="farmacologico" style="display:none;">
+            <div class="campo"><label>Título (opcional)</label><input type="text" class="in-titulo-contenido"></div>
+            <div class="campo"><label>Texto</label><textarea class="in-texto-contenido" rows="3"></textarea></div>
+            <div class="campo"><label>Link de video (opcional)</label><input type="url" class="in-video-contenido" placeholder="https://..."></div>
+            <div class="campo"><label>Link de PDF (opcional)</label><input type="url" class="in-pdf-contenido" placeholder="https://..."></div>
+            <button type="button" class="btn btn-primary btn-confirmar-contenido" data-seccion="farmacologico" style="width:auto;padding:10px 20px;">Agregar</button>
+            <button type="button" class="btn-cancelar-obj btn-cancelar-contenido" data-seccion="farmacologico">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="acordeon-item" data-seccion="alimentario">
+        <div class="acordeon-header">
+          <span>Patrón alimentario con beneficios cardiovasculares</span>
+          <span class="acordeon-flecha">▾</span>
+        </div>
+        <div class="acordeon-body">
+          <div class="contenido-lista" data-lista="alimentario"><div class="vacio">Cargando...</div></div>
+          <button type="button" class="btn-agregar-objetivo btn-mostrar-form-contenido" data-seccion="alimentario">+ Agregar contenido</button>
+          <div class="form-contenido" data-form="alimentario" style="display:none;">
+            <div class="campo"><label>Título (opcional)</label><input type="text" class="in-titulo-contenido"></div>
+            <div class="campo"><label>Texto</label><textarea class="in-texto-contenido" rows="3"></textarea></div>
+            <div class="campo"><label>Link de video (opcional)</label><input type="url" class="in-video-contenido" placeholder="https://..."></div>
+            <div class="campo"><label>Link de PDF (opcional)</label><input type="url" class="in-pdf-contenido" placeholder="https://..."></div>
+            <button type="button" class="btn btn-primary btn-confirmar-contenido" data-seccion="alimentario" style="width:auto;padding:10px 20px;">Agregar</button>
+            <button type="button" class="btn-cancelar-obj btn-cancelar-contenido" data-seccion="alimentario">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="acordeon-item" data-seccion="actividad_fisica">
+        <div class="acordeon-header">
+          <span>Actividad física como parte del tratamiento</span>
+          <span class="acordeon-flecha">▾</span>
+        </div>
+        <div class="acordeon-body">
+          <div class="contenido-lista" data-lista="actividad_fisica"><div class="vacio">Cargando...</div></div>
+          <button type="button" class="btn-agregar-objetivo btn-mostrar-form-contenido" data-seccion="actividad_fisica">+ Agregar contenido</button>
+          <div class="form-contenido" data-form="actividad_fisica" style="display:none;">
+            <div class="campo"><label>Título (opcional)</label><input type="text" class="in-titulo-contenido"></div>
+            <div class="campo"><label>Texto</label><textarea class="in-texto-contenido" rows="3"></textarea></div>
+            <div class="campo"><label>Link de video (opcional)</label><input type="url" class="in-video-contenido" placeholder="https://..."></div>
+            <div class="campo"><label>Link de PDF (opcional)</label><input type="url" class="in-pdf-contenido" placeholder="https://..."></div>
+            <button type="button" class="btn btn-primary btn-confirmar-contenido" data-seccion="actividad_fisica" style="width:auto;padding:10px 20px;">Agregar</button>
+            <button type="button" class="btn-cancelar-obj btn-cancelar-contenido" data-seccion="actividad_fisica">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="acordeon-item" data-seccion="estilo_vida">
+        <div class="acordeon-header">
+          <span>Estilo de vida</span>
+          <span class="acordeon-flecha">▾</span>
+        </div>
+        <div class="acordeon-body">
+          <div class="contenido-lista" data-lista="estilo_vida"><div class="vacio">Cargando...</div></div>
+          <button type="button" class="btn-agregar-objetivo btn-mostrar-form-contenido" data-seccion="estilo_vida">+ Agregar contenido</button>
+          <div class="form-contenido" data-form="estilo_vida" style="display:none;">
+            <div class="campo"><label>Título (opcional)</label><input type="text" class="in-titulo-contenido"></div>
+            <div class="campo"><label>Texto</label><textarea class="in-texto-contenido" rows="3"></textarea></div>
+            <div class="campo"><label>Link de video (opcional)</label><input type="url" class="in-video-contenido" placeholder="https://..."></div>
+            <div class="campo"><label>Link de PDF (opcional)</label><input type="url" class="in-pdf-contenido" placeholder="https://..."></div>
+            <button type="button" class="btn btn-primary btn-confirmar-contenido" data-seccion="estilo_vida" style="width:auto;padding:10px 20px;">Agregar</button>
+            <button type="button" class="btn-cancelar-obj btn-cancelar-contenido" data-seccion="estilo_vida">Cancelar</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="card">
@@ -641,6 +801,7 @@ async function hacerLogin(){
   vistaLogin.style.display = 'none';
   vistaApp.style.display = 'block';
   cargarPacientes();
+  cargarTipDelDiaProf();
 }
 
 async function cerrarSesion(){
@@ -760,6 +921,9 @@ async function abrirFicha(dni){
   document.getElementById('hcResultadoWrap').style.display = 'none';
   document.getElementById('hcTexto').value = '';
 
+  document.querySelectorAll('.acordeon-item').forEach(item => item.classList.remove('abierto'));
+  SECCIONES_INFO_PROF.forEach(s => limpiarFormContenido(s, true));
+
   const { data: registros, error } = await sb
     .from('appdipo_registros')
     .select('*')
@@ -779,6 +943,7 @@ async function abrirFicha(dni){
   renderObjetivosAlimentacion(pacienteSeleccionado);
   renderObjetivosActividad(pacienteSeleccionado);
   cargarHabitosRecientes(dni);
+  cargarInformacionImportanteProf(dni);
 }
 
 function obtenerUltimoPeso(registros){
@@ -997,6 +1162,205 @@ async function guardarObjetivosActividad(){
   const msg = document.getElementById('objActGuardadoMsg');
   msg.style.display = 'block';
   setTimeout(()=>{ msg.style.display = 'none'; }, 4000);
+}
+
+// ═══ TIP DEL DÍA (global, no depende de un paciente) ═══
+function fechaISOProf(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+document.getElementById('inFechaTip').addEventListener('change', cargarTipDelDiaProf);
+document.getElementById('btnGuardarTip').addEventListener('click', guardarTipDelDiaProf);
+
+async function cargarTipDelDiaProf(){
+  const inFecha = document.getElementById('inFechaTip');
+  if(!inFecha.value) inFecha.value = fechaISOProf(new Date());
+  document.getElementById('tipGuardadoMsg').style.display = 'none';
+
+  const { data, error } = await sb.from('appdipo_tips').select('texto').eq('fecha', inFecha.value).maybeSingle();
+  if(error){
+    console.error(error);
+    return;
+  }
+  document.getElementById('inTextoTip').value = (data && data.texto) || '';
+}
+
+async function guardarTipDelDiaProf(){
+  const fecha = document.getElementById('inFechaTip').value;
+  const texto = document.getElementById('inTextoTip').value.trim();
+
+  if(!fecha){
+    alert('Elegí una fecha para el tip.');
+    return;
+  }
+
+  const btn = document.getElementById('btnGuardarTip');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  const { error } = await sb.from('appdipo_tips').upsert({ fecha, texto }, { onConflict: 'fecha' });
+
+  btn.disabled = false;
+  btn.textContent = '💾 Guardar tip';
+
+  if(error){
+    console.error(error);
+    alert('No se pudo guardar el tip: ' + error.message);
+    return;
+  }
+
+  const msg = document.getElementById('tipGuardadoMsg');
+  msg.style.display = 'block';
+  setTimeout(()=>{ msg.style.display = 'none'; }, 4000);
+}
+
+// ═══ INFORMACIÓN IMPORTANTE (contenido por paciente y por sección) ═══
+const SECCIONES_INFO_PROF = ['adiposidad', 'farmacologico', 'alimentario', 'actividad_fisica', 'estilo_vida'];
+let contenidoActualPaciente = [];
+
+async function cargarInformacionImportanteProf(dni){
+  SECCIONES_INFO_PROF.forEach(s=>{
+    document.querySelector(`[data-lista="${s}"]`).innerHTML = '<div class="vacio">Cargando...</div>';
+  });
+
+  const { data, error } = await sb
+    .from('appdipo_contenido')
+    .select('*')
+    .eq('dni_paciente', dni)
+    .order('orden', { ascending: true });
+
+  if(error){
+    console.error(error);
+    SECCIONES_INFO_PROF.forEach(s=>{
+      document.querySelector(`[data-lista="${s}"]`).innerHTML = '<div class="vacio">No se pudo cargar el contenido.</div>';
+    });
+    return;
+  }
+
+  contenidoActualPaciente = data || [];
+  renderContenidoImportanteProf();
+}
+
+function renderContenidoImportanteProf(){
+  SECCIONES_INFO_PROF.forEach(s=>{
+    const cont = document.querySelector(`[data-lista="${s}"]`);
+    const items = contenidoActualPaciente.filter(i => i.seccion === s);
+
+    if(!items.length){
+      cont.innerHTML = '<div class="vacio" style="padding:14px 0;">Todavía no cargaste contenido en esta sección.</div>';
+      return;
+    }
+
+    cont.innerHTML = items.map(item=>{
+      const extras = [];
+      if(item.video_url) extras.push('🎥 video');
+      if(item.pdf_url) extras.push('📄 PDF');
+      return `<div class="obj-act-card">
+        <div>
+          ${item.titulo ? `<b>${item.titulo}</b><br>` : ''}
+          ${item.texto ? `<span class="obj-act-lista-txt">${item.texto}</span><br>` : ''}
+          ${extras.length ? `<span class="obj-act-lista-txt">${extras.join(' · ')}</span>` : ''}
+        </div>
+        <button type="button" class="btn-quitar-obj btn-quitar-contenido" data-id="${item.id}">Quitar</button>
+      </div>`;
+    }).join('');
+  });
+
+  document.querySelectorAll('.btn-quitar-contenido').forEach(btn=>{
+    btn.addEventListener('click', ()=> eliminarContenido(btn.dataset.id));
+  });
+}
+
+async function eliminarContenido(id){
+  if(!confirm('¿Eliminar este contenido?')) return;
+
+  const { error } = await sb.from('appdipo_contenido').delete().eq('id', id);
+  if(error){
+    console.error(error);
+    alert('No se pudo eliminar: ' + error.message);
+    return;
+  }
+
+  contenidoActualPaciente = contenidoActualPaciente.filter(i => String(i.id) !== String(id));
+  renderContenidoImportanteProf();
+}
+
+document.querySelectorAll('.acordeon-header').forEach(header=>{
+  header.addEventListener('click', ()=>{
+    header.parentElement.classList.toggle('abierto');
+  });
+});
+
+document.querySelectorAll('.btn-mostrar-form-contenido').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const form = document.querySelector(`.form-contenido[data-form="${btn.dataset.seccion}"]`);
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  });
+});
+
+document.querySelectorAll('.btn-cancelar-contenido').forEach(btn=>{
+  btn.addEventListener('click', ()=> limpiarFormContenido(btn.dataset.seccion, true));
+});
+
+function limpiarFormContenido(seccion, ocultar){
+  const form = document.querySelector(`.form-contenido[data-form="${seccion}"]`);
+  if(ocultar) form.style.display = 'none';
+  form.querySelector('.in-titulo-contenido').value = '';
+  form.querySelector('.in-texto-contenido').value = '';
+  form.querySelector('.in-video-contenido').value = '';
+  form.querySelector('.in-pdf-contenido').value = '';
+}
+
+document.querySelectorAll('.btn-confirmar-contenido').forEach(btn=>{
+  btn.addEventListener('click', ()=> agregarContenido(btn.dataset.seccion));
+});
+
+async function agregarContenido(seccion){
+  if(!pacienteSeleccionado) return;
+
+  const form = document.querySelector(`.form-contenido[data-form="${seccion}"]`);
+  const titulo = form.querySelector('.in-titulo-contenido').value.trim();
+  const texto = form.querySelector('.in-texto-contenido').value.trim();
+  const video_url = form.querySelector('.in-video-contenido').value.trim();
+  const pdf_url = form.querySelector('.in-pdf-contenido').value.trim();
+
+  if(!titulo && !texto && !video_url && !pdf_url){
+    alert('Completá al menos un campo antes de agregar.');
+    return;
+  }
+
+  const itemsSeccion = contenidoActualPaciente.filter(i => i.seccion === seccion);
+  const orden = itemsSeccion.length ? Math.max(...itemsSeccion.map(i => i.orden || 0)) + 1 : 0;
+
+  const btnConfirmar = form.querySelector('.btn-confirmar-contenido');
+  btnConfirmar.disabled = true;
+  btnConfirmar.textContent = 'Agregando...';
+
+  const { data, error } = await sb.from('appdipo_contenido').insert([{
+    dni_paciente: pacienteSeleccionado.dni,
+    seccion,
+    titulo: titulo || null,
+    texto: texto || null,
+    video_url: video_url || null,
+    pdf_url: pdf_url || null,
+    orden
+  }]).select();
+
+  btnConfirmar.disabled = false;
+  btnConfirmar.textContent = 'Agregar';
+
+  if(error){
+    console.error(error);
+    alert('No se pudo guardar el contenido: ' + error.message);
+    return;
+  }
+
+  contenidoActualPaciente.push(data[0]);
+  limpiarFormContenido(seccion, true);
+  renderContenidoImportanteProf();
 }
 
 // ═══ SUGERENCIA AUTOMÁTICA: PROTEÍNAS SEGÚN PESO ═══
@@ -1411,6 +1775,7 @@ async function copiarResumenHC(){
     vistaLogin.style.display = 'none';
     vistaApp.style.display = 'block';
     cargarPacientes();
+    cargarTipDelDiaProf();
   }
 })();
 </script>
