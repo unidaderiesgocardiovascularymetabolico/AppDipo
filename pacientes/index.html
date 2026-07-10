@@ -75,6 +75,14 @@
     font-family:inherit;
   }
   .campo input:focus{outline:none; border-color:var(--azul);}
+  .campo-pass-wrap{position:relative;}
+  .campo-pass-wrap input{padding-right:44px;}
+  .btn-ver-pass{
+    position:absolute; right:6px; top:50%; transform:translateY(-50%);
+    background:none; border:none; cursor:pointer; padding:8px;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--texto-suave); font-size:1.05rem; line-height:1;
+  }
   .btn{
     width:100%;
     padding:14px;
@@ -502,6 +510,28 @@
   .dash-duda-btn .flecha{font-size:0.65rem; transition:transform .15s ease;}
   .dash-duda-btn.abierto .flecha{transform:rotate(180deg);}
 
+  /* ---------- ALIMENTOS FUERA DE DASH (para moderar) ---------- */
+  .card-extras{background:#FFF6E9; border-color:#F5D9A3;}
+  .card-extras h3{color:#C9821A;}
+  .dash-stepper-extra{display:flex; align-items:center; gap:10px; flex-shrink:0;}
+  .dash-stepper-extra button{
+    width:32px; height:32px; border-radius:50%; border:1.5px solid #F0D6A6; background:var(--blanco);
+    font-size:1.1rem; font-weight:700; color:#C9821A; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; line-height:1;
+  }
+  .dash-stepper-extra button:active{transform:scale(0.92);}
+  .dash-stepper-extra .cantidad{min-width:20px; text-align:center; font-weight:700; font-size:1rem;}
+  .resumen-extra-titulo{font-size:0.85rem; font-weight:700; color:#C9821A; margin:16px 0 10px;}
+  .resumen-extra-lista{display:flex; flex-direction:column; gap:2px;}
+  .resumen-extra-fila{
+    display:flex; align-items:center; gap:10px; padding:8px 0;
+    border-bottom:1px solid #F0F0F0; font-size:0.85rem;
+  }
+  .resumen-extra-fila:last-child{border-bottom:none;}
+  .resumen-extra-icono{font-size:1.3rem; width:26px; text-align:center; flex-shrink:0;}
+  .resumen-extra-nombre{flex:1;}
+  .resumen-extra-cantidad{color:#C9821A; font-weight:700; font-size:0.78rem; white-space:nowrap;}
+
   /* ---------- OBJETIVOS DE ACTIVIDAD (semanales) ---------- */
   .obj-semanal{padding:14px 4px; border-bottom:1px solid var(--gris);}
   .obj-semanal:last-child{border-bottom:none;}
@@ -572,6 +602,7 @@
     border-radius:20px;
     transition:width .3s ease;
   }
+  .resumen-semana-barra .relleno.naranja{background:#F5A623;}
   .resumen-semana-nota{font-size:0.78rem; color:var(--texto-suave); margin-top:4px;}
 
   .resumen-alimento-fila{
@@ -765,7 +796,10 @@
       </div>
       <div class="campo">
         <label for="loginPass">Contraseña</label>
-        <input type="password" id="loginPass" autocomplete="current-password" placeholder="••••••••">
+        <div class="campo-pass-wrap">
+          <input type="password" id="loginPass" autocomplete="current-password" placeholder="••••••••">
+          <button type="button" class="btn-ver-pass" id="btnVerPassLogin" aria-label="Mostrar contraseña">👁️</button>
+        </div>
       </div>
       <button class="btn btn-primary" id="btnLogin">Ingresar</button>
       <div class="error-msg" id="loginError"></div>
@@ -901,6 +935,12 @@
           <h3>🥗 Alimentación DASH de hoy</h3>
           <p class="campo-opcional-label" style="margin-bottom:12px;">Contá cuántas porciones comiste hoy de cada grupo. Los objetivos de proteínas y calcio los define tu médico/a; el resto son valores de referencia de la dieta DASH. Tocá "¿Qué cuenta acá?" si tenés dudas sobre algún grupo.</p>
           <div id="listaAlimentacionDash"></div>
+        </div>
+
+        <div class="card card-extras">
+          <h3>🍩 Otros alimentos (fuera de DASH)</h3>
+          <p class="campo-opcional-label" style="margin-bottom:12px;">Estos no forman parte de la dieta DASH — anotalos igual para que tu médico/a tenga el panorama completo. Acá no hay un objetivo a cumplir: cuantos menos, mejor.</p>
+          <div id="listaAlimentacionExtras"></div>
         </div>
 
         <div class="card">
@@ -1332,6 +1372,15 @@ document.getElementById('loginPass').addEventListener('keydown', e=>{
   if(e.key === 'Enter') hacerLogin();
 });
 
+document.getElementById('btnVerPassLogin').addEventListener('click', ()=>{
+  const input = document.getElementById('loginPass');
+  const btn = document.getElementById('btnVerPassLogin');
+  const oculta = input.type === 'password';
+  input.type = oculta ? 'text' : 'password';
+  btn.textContent = oculta ? '🙈' : '👁️';
+  btn.setAttribute('aria-label', oculta ? 'Ocultar contraseña' : 'Mostrar contraseña');
+});
+
 async function hacerLogin(){
   const dni = document.getElementById('loginDni').value.trim().replace(/\D/g, '');
   const pass = document.getElementById('loginPass').value;
@@ -1701,6 +1750,53 @@ document.addEventListener('click', e=>{
   }
 });
 
+// ═══ ALIMENTOS FUERA DE DASH (para moderar, sin objetivo) ═══
+const CATALOGO_EXTRAS = [
+  { key:'galletitas', nombre:'Galletitas', icono:'🍪' },
+  { key:'alcohol',     nombre:'Alcohol',    icono:'🍷' },
+  { key:'fideos',      nombre:'Fideos',     icono:'🍝' },
+  { key:'arroz',       nombre:'Arroz',      icono:'🍚' },
+  { key:'snacks',      nombre:'Snacks',     icono:'🍟' },
+  { key:'fiambres',    nombre:'Fiambres / embutidos', icono:'🥓' },
+  { key:'panaderia',   nombre:'Panadería',  icono:'🥐' },
+  { key:'tortas',      nombre:'Tortas',     icono:'🍰' },
+  { key:'golosinas',   nombre:'Golosinas',  icono:'🍬' },
+  { key:'otros',       nombre:'Otros (pizza, helado, etc.)', icono:'🍕' },
+];
+let estadoExtras = {};
+
+function renderizarListaExtras(){
+  const cont = document.getElementById('listaAlimentacionExtras');
+  cont.innerHTML = CATALOGO_EXTRAS.map(item=>{
+    const cantidad = estadoExtras[item.key] || 0;
+    return `<div class="dash-item dash-item-extra">
+      <div class="dash-item-top">
+        <div class="dash-nombre-row">
+          <span class="dash-icono">${item.icono}</span>
+          <div class="dash-info">
+            <div class="nombre">${item.nombre}</div>
+          </div>
+        </div>
+        <div class="dash-stepper-extra">
+          <button type="button" data-accion-extra="restar" data-key-extra="${item.key}" aria-label="Restar">–</button>
+          <span class="cantidad">${cantidad}</span>
+          <button type="button" data-accion-extra="sumar" data-key-extra="${item.key}" aria-label="Sumar">+</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.addEventListener('click', e=>{
+  const btnStepExtra = e.target.closest('.dash-stepper-extra button');
+  if(btnStepExtra){
+    const key = btnStepExtra.dataset.keyExtra;
+    const delta = btnStepExtra.dataset.accionExtra === 'sumar' ? 1 : -1;
+    estadoExtras[key] = Math.max(0, (estadoExtras[key] || 0) + delta);
+    renderizarListaExtras();
+  }
+});
+
 // ═══ OBJETIVOS DE ACTIVIDAD FÍSICA (semanales, definidos por el profesional) ═══
 const BLOQUES_TIEMPO_ACTIVIDAD = [15, 30, 45, 60];
 let habitosSemanaConDatos = [];  // [{ fecha, actividad_json }] de días ya guardados esta semana
@@ -1911,12 +2007,14 @@ function seleccionarDiaHabitos(fecha){
   registroActividadDia = {};
   seleccionActividadTemp = {};
   estadoDash = {};
+  estadoExtras = {};
   document.getElementById('inSuenoHoras').value = '';
   document.getElementById('inPasosHoy').value = '';
   document.getElementById('inPantallaHoy').value = '';
   document.getElementById('inPausasHoy').value = '';
   renderizarObjetivosActividadPaciente();
   renderizarListaDash();
+  renderizarListaExtras();
   actualizarResumenHabitos();
 
   renderizarCalendarioSemana();
@@ -1971,6 +2069,7 @@ async function cargarPanelHabitos(){
   registroActividadDia = {};
   seleccionActividadTemp = {};
   estadoDash = {};
+  estadoExtras = {};
   document.getElementById('inSuenoHoras').value = '';
   document.getElementById('inPasosHoy').value = '';
   document.getElementById('inPantallaHoy').value = '';
@@ -1978,6 +2077,7 @@ async function cargarPanelHabitos(){
 
   renderizarObjetivosActividadPaciente();
   renderizarListaDash();
+  renderizarListaExtras();
   actualizarResumenHabitos();
   renderizarCalendarioSemana();
 }
@@ -2006,6 +2106,7 @@ async function guardarHabitos(){
   const camposComunes = {
     actividad_json,
     alimentacion_dash_json: estadoDash,
+    alimentacion_extras_json: estadoExtras,
     sueno_horas, pasos, pantalla_horas, pausas_activas_realizadas
   };
 
@@ -2062,11 +2163,12 @@ async function cargarResumenSemanal(){
   renderizarResumenSueno(habitos || []);
 }
 
-function filaResumen(titulo, porcentaje, nota){
+function filaResumen(titulo, porcentaje, nota, color){
   const pct = Math.round(Math.max(0, Math.min(100, porcentaje)));
+  const claseColor = color === 'naranja' ? 'naranja' : '';
   return `<div class="resumen-semana-fila">
     <div class="resumen-semana-titulo"><span>${titulo}</span><span class="porcentaje">${pct}%</span></div>
-    <div class="resumen-semana-barra"><div class="relleno" style="width:${pct}%"></div></div>
+    <div class="resumen-semana-barra"><div class="relleno ${claseColor}" style="width:${pct}%"></div></div>
     ${nota ? `<div class="resumen-semana-nota">${nota}</div>` : ''}
   </div>`;
 }
@@ -2118,6 +2220,22 @@ function renderizarResumenAlimentacion(habitos){
   const huevoTotal = conDatos.reduce((acc,h) => acc + (h.alimentacion_dash_json.huevo || 0), 0);
   const pctGeneral = totalObjetivo > 0 ? Math.round(Math.min(100, (totalConsumido / totalObjetivo) * 100)) : 0;
 
+  // Alimentos fuera de DASH: no tienen objetivo a cumplir (cuantos menos, mejor),
+  // así que se muestran en naranja en vez de verde/teal.
+  const conDatosExtras = habitos.filter(h => h.alimentacion_extras_json);
+  let totalExtras = 0;
+  const extrasHtml = CATALOGO_EXTRAS.map(item=>{
+    const total = conDatosExtras.reduce((acc,h) => acc + ((h.alimentacion_extras_json[item.key]) || 0), 0);
+    totalExtras += total;
+    if(!total) return '';
+    return `<div class="resumen-extra-fila"><span class="resumen-extra-icono">${item.icono}</span><span class="resumen-extra-nombre">${item.nombre}</span><span class="resumen-extra-cantidad">${total}x esta semana</span></div>`;
+  }).join('');
+  const pctExtras = Math.min(100, Math.round((totalExtras / 7) * 100));
+  const bloqueExtras = conDatosExtras.length
+    ? `${filaResumen('Alimentos fuera de DASH', pctExtras, `${totalExtras} porciones registradas esta semana (referencia: 1 por día)`, 'naranja')}
+       ${extrasHtml ? `<div class="resumen-extra-titulo">Detalle</div><div class="resumen-extra-lista">${extrasHtml}</div>` : ''}`
+    : '';
+
   // Detalle día por día: lo que comiste vs. el objetivo de cada grupo, ese día puntual.
   const detalleDiasHtml = conDatos.slice().reverse().map(h=>{
     const fecha = new Date(h.fecha+'T12:00:00').toLocaleDateString('es-AR', { weekday:'short', day:'2-digit', month:'2-digit' });
@@ -2139,6 +2257,7 @@ function renderizarResumenAlimentacion(habitos){
     ${filaResumen('Total de la semana', pctGeneral, null)}
     <div style="margin-top:12px;">${filasHtml}</div>
     <div class="resumen-semana-nota" style="margin-top:12px;">🥚 Huevo: ${huevoTotal} porciones cargadas esta semana</div>
+    ${bloqueExtras}
     <div class="dash-dia-detalle-titulo">Detalle por día</div>
     ${detalleDiasHtml}`;
 }
