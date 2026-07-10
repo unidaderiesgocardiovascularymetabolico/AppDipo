@@ -286,6 +286,58 @@
     font-size:0.9rem;
   }
 
+  /* ---------- INFORMACIÓN IMPORTANTE (acordeón) ---------- */
+  .acordeon-item{
+    background:var(--blanco);
+    border:1.5px solid var(--gris);
+    border-radius:var(--radio);
+    margin-bottom:12px;
+    overflow:hidden;
+  }
+  .acordeon-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    padding:16px 18px;
+    cursor:pointer;
+    font-family:'Amiko', serif;
+    font-weight:700;
+    font-size:1rem;
+    color:var(--azul);
+  }
+  .acordeon-flecha{
+    color:var(--texto-suave);
+    font-size:0.85rem;
+    transition:transform .2s ease;
+    flex-shrink:0;
+  }
+  .acordeon-item.abierto .acordeon-flecha{transform:rotate(180deg);}
+  .acordeon-body{
+    display:none;
+    padding:0 18px 16px;
+    border-top:1px solid var(--gris);
+  }
+  .acordeon-item.abierto .acordeon-body{display:block; padding-top:14px;}
+  .contenido-item{
+    padding:12px 0;
+    border-top:1px solid var(--gris);
+  }
+  .contenido-item:first-child{border-top:none; padding-top:0;}
+  .contenido-item h4{font-size:0.92rem; margin-bottom:6px; color:var(--texto);}
+  .contenido-item p{font-size:0.88rem; color:var(--texto-suave); margin:0 0 10px; white-space:pre-wrap;}
+  .contenido-item video{width:100%; border-radius:10px; margin-bottom:10px; display:block; background:#000;}
+  .contenido-item .link-pdf{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:0.85rem;
+    font-weight:600;
+    color:var(--coral);
+    text-decoration:none;
+    margin-bottom:10px;
+  }
+
   /* ---------- ANTROPOMETRÍA CLÍNICA (solo lectura, estilo informe) ---------- */
   .ant-informe-hdr{
     font-size:0.78rem;
@@ -818,9 +870,10 @@
     <main>
       <div class="tabs">
         <div class="tab active" data-tab="registro">Hoy</div>
-        <div class="tab" data-tab="medidas">Medidas</div>
+        <div class="tab" data-tab="informacion">Información importante</div>
         <div class="tab" data-tab="habitos">Hábitos</div>
         <div class="tab" data-tab="resumen">Resumen semanal</div>
+        <div class="tab" data-tab="medidas">Medidas</div>
         <div class="tab" data-tab="historial">Mi evolución</div>
         <div class="tab" data-tab="ayuda">Ayuda</div>
       </div>
@@ -829,6 +882,11 @@
 
       <!-- ---- REGISTRO (HOY: ánimo + nota) ---- -->
       <div class="panel active" id="panel-registro">
+        <div class="card" id="cardTipDia" style="display:none;">
+          <h3>💡 Tip del día</h3>
+          <div id="textoTipDia"></div>
+        </div>
+
         <div class="card">
           <h3>¿Cómo te sentís hoy?</h3>
           <div class="animo-fila" id="animoFila"></div>
@@ -841,6 +899,59 @@
         </div>
 
         <button class="btn btn-primary" id="btnGuardarRegistro">Guardar</button>
+      </div>
+
+      <!-- ---- INFORMACIÓN IMPORTANTE ---- -->
+      <div class="panel" id="panel-informacion">
+        <div class="acordeon-item">
+          <div class="acordeon-header" data-seccion="adiposidad">
+            <span>Adiposidad</span>
+            <span class="acordeon-flecha">▾</span>
+          </div>
+          <div class="acordeon-body" id="seccion-adiposidad">
+            <div class="vacio">Cargando...</div>
+          </div>
+        </div>
+
+        <div class="acordeon-item">
+          <div class="acordeon-header" data-seccion="farmacologico">
+            <span>Tratamiento farmacológico</span>
+            <span class="acordeon-flecha">▾</span>
+          </div>
+          <div class="acordeon-body" id="seccion-farmacologico">
+            <div class="vacio">Cargando...</div>
+          </div>
+        </div>
+
+        <div class="acordeon-item">
+          <div class="acordeon-header" data-seccion="alimentario">
+            <span>Patrón alimentario con beneficios cardiovasculares</span>
+            <span class="acordeon-flecha">▾</span>
+          </div>
+          <div class="acordeon-body" id="seccion-alimentario">
+            <div class="vacio">Cargando...</div>
+          </div>
+        </div>
+
+        <div class="acordeon-item">
+          <div class="acordeon-header" data-seccion="actividad_fisica">
+            <span>Actividad física como parte del tratamiento</span>
+            <span class="acordeon-flecha">▾</span>
+          </div>
+          <div class="acordeon-body" id="seccion-actividad_fisica">
+            <div class="vacio">Cargando...</div>
+          </div>
+        </div>
+
+        <div class="acordeon-item">
+          <div class="acordeon-header" data-seccion="estilo_vida">
+            <span>Estilo de vida</span>
+            <span class="acordeon-flecha">▾</span>
+          </div>
+          <div class="acordeon-body" id="seccion-estilo_vida">
+            <div class="vacio">Cargando...</div>
+          </div>
+        </div>
       </div>
 
       <!-- ---- MEDIDAS (peso, medidas, foto) ---- -->
@@ -1030,7 +1141,7 @@
           </div>
           <div class="ayuda-paso">
             <div class="ayuda-num">2</div>
-            <div class="ayuda-txt">En <b>Medidas</b> cargá tu peso y medidas cuando tu médico/a te lo indique. La foto es opcional.</div>
+            <div class="ayuda-txt">En <b>Información importante</b> vas a encontrar contenido que tu médico/a te va cargando sobre tu tratamiento.</div>
           </div>
           <div class="ayuda-paso">
             <div class="ayuda-num">3</div>
@@ -1038,10 +1149,14 @@
           </div>
           <div class="ayuda-paso">
             <div class="ayuda-num">4</div>
-            <div class="ayuda-txt">En <b>Mi evolución</b> vas a ver tus últimos registros a medida que los vayas cargando.</div>
+            <div class="ayuda-txt">En <b>Medidas</b> cargá tu peso y medidas cuando tu médico/a te lo indique. La foto es opcional.</div>
           </div>
           <div class="ayuda-paso">
             <div class="ayuda-num">5</div>
+            <div class="ayuda-txt">En <b>Mi evolución</b> vas a ver tus últimos registros a medida que los vayas cargando.</div>
+          </div>
+          <div class="ayuda-paso">
+            <div class="ayuda-num">6</div>
             <div class="ayuda-txt">Si te olvidás tu contraseña, pedile a tu médico/a que te genere una nueva desde su panel.</div>
           </div>
         </div>
@@ -1366,6 +1481,81 @@ async function cargarMensaje(){
   }
 }
 
+// ═══ TIP DEL DÍA ═══
+async function cargarTipDia(){
+  const hoy = fechaISO(new Date());
+  const card = document.getElementById('cardTipDia');
+  const texto = document.getElementById('textoTipDia');
+  try{
+    const { data } = await sb.from('appdipo_tips').select('texto').eq('fecha', hoy).maybeSingle();
+    if(data && data.texto){
+      texto.textContent = data.texto;
+      card.style.display = 'block';
+    } else {
+      card.style.display = 'none';
+    }
+  }catch(e){
+    console.error(e);
+    card.style.display = 'none';
+  }
+}
+
+// ═══ INFORMACIÓN IMPORTANTE (contenido cargado por el/la profesional) ═══
+const SECCIONES_INFORMACION = ['adiposidad', 'farmacologico', 'alimentario', 'actividad_fisica', 'estilo_vida'];
+
+async function cargarInformacionImportante(){
+  SECCIONES_INFORMACION.forEach(s=>{
+    document.getElementById('seccion-' + s).innerHTML = '<div class="vacio">Cargando...</div>';
+  });
+
+  const { data, error } = await sb
+    .from('appdipo_contenido')
+    .select('*')
+    .eq('dni_paciente', pacienteActual.dni)
+    .order('orden', { ascending: true });
+
+  if(error){
+    console.error(error);
+    SECCIONES_INFORMACION.forEach(s=>{
+      document.getElementById('seccion-' + s).innerHTML = '<div class="vacio">No se pudo cargar el contenido. Probá de nuevo más tarde.</div>';
+    });
+    return;
+  }
+
+  SECCIONES_INFORMACION.forEach(s=>{
+    const cont = document.getElementById('seccion-' + s);
+    const items = (data || []).filter(item => item.seccion === s);
+
+    if(!items.length){
+      cont.innerHTML = '<div class="vacio">Tu médico/a todavía no cargó contenido en esta sección.</div>';
+      return;
+    }
+
+    cont.innerHTML = items.map(item => {
+      let extra = '';
+      if(item.video_url){
+        extra += `<video controls src="${item.video_url}"></video>`;
+      }
+      if(item.pdf_url){
+        extra += `<a class="link-pdf" href="${item.pdf_url}" target="_blank" rel="noopener">📄 Ver PDF</a>`;
+      }
+      return `
+        <div class="contenido-item">
+          ${item.titulo ? `<h4>${item.titulo}</h4>` : ''}
+          ${item.texto ? `<p>${item.texto}</p>` : ''}
+          ${extra}
+        </div>
+      `;
+    }).join('');
+  });
+}
+
+document.querySelectorAll('.acordeon-header').forEach(header=>{
+  header.addEventListener('click', ()=>{
+    header.parentElement.classList.toggle('abierto');
+  });
+});
+
 // ═══ LOGIN ═══
 document.getElementById('btnLogin').addEventListener('click', hacerLogin);
 document.getElementById('loginPass').addEventListener('keydown', e=>{
@@ -1443,6 +1633,7 @@ async function cargarPaciente(){
     vistaApp.style.display = 'flex';
 
     cargarMensaje();
+    cargarTipDia();
     cargarHistorial();
     cargarAntropometriaClinica();
 
@@ -1484,6 +1675,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     if(tab.dataset.tab === 'historial') { cargarHistorial(); cargarAntropometriaClinica(); }
     if(tab.dataset.tab === 'habitos') cargarPanelHabitos();
     if(tab.dataset.tab === 'resumen') cargarResumenSemanal();
+    if(tab.dataset.tab === 'informacion') cargarInformacionImportante();
   });
 });
 
